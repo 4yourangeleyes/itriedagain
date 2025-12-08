@@ -17,7 +17,7 @@ interface DashboardScreenProps {
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, profile, onCloneLast, onShowWizard }) => {
   const navigate = useNavigate();
   const { templates } = useTemplates();
-  const { setActiveStep, setShowGuide, skipOnboarding } = useOnboarding();
+  const { setActiveStep, setShowGuide, skipOnboarding, userCreatedTemplatesCount } = useOnboarding();
 
   // Money Pulse Logic
   const weeklyRevenue = documents
@@ -55,7 +55,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, p
     { 
       id: 'templates', 
       label: '3+ Templates Created', 
-      completed: templates.length >= 3,
+      completed: userCreatedTemplatesCount >= 3, // Use user-created count, not total
       action: () => {
         setActiveStep('templates');
         setShowGuide(true);

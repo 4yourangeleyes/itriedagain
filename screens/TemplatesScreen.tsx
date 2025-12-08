@@ -19,7 +19,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   const [tempType, setTempType] = useState<DocType>(DocType.INVOICE);
   const [tempItems, setTempItems] = useState<any[]>([]);
   const [tempClauseContent, setTempClauseContent] = useState('');
-  const { activeStep, showGuide, completeStep } = useOnboarding();
+  const { activeStep, showGuide, completeStep, userCreatedTemplatesCount, incrementUserTemplates } = useOnboarding();
 
   const handleAddTemplate = async () => {
     if (!tempName) return;
@@ -39,6 +39,14 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
 
     await saveTemplate(newTemplate);
     setTemplates([...templates, newTemplate]);
+    
+    // Increment user-created template counter
+    incrementUserTemplates();
+    
+    // If user just hit 3 templates, complete the milestone
+    if (userCreatedTemplatesCount + 1 >= 3 && activeStep === 'templates') {
+      completeStep('templates');
+    }
     
     // Reset form
     setTempName('');
@@ -82,11 +90,11 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
         </button>
 
         {/* Template Creation Guide */}
-        {activeStep === 'templates' && showGuide && !showAddTemplate && templates.length < 3 && (
+        {activeStep === 'templates' && showGuide && !showAddTemplate && userCreatedTemplatesCount < 3 && (
             <div className="relative mb-6">
                 <OnboardingTooltip
                     title="Create Your Templates"
-                    description="Templates save you time! Click 'New Template' to create reusable invoice or contract templates. Create at least 3 templates for common services you offer. You can add line items, clauses, and pricing that you use frequently."
+                    description={`Templates save you time! Click 'New Template' to create reusable invoice or contract templates. You've created ${userCreatedTemplatesCount} so far - create ${3 - userCreatedTemplatesCount} more to complete this step. Add line items, clauses, and pricing that you use frequently.`}
                     step="4"
                     totalSteps="5"
                     position="bottom"

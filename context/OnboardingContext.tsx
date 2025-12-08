@@ -11,6 +11,8 @@ interface OnboardingContextType {
   completeStep: (step: OnboardingStep) => void;
   skipOnboarding: () => void;
   isOnboardingActive: boolean;
+  userCreatedTemplatesCount: number;
+  incrementUserTemplates: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -20,13 +22,20 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
   const [activeStep, setActiveStep] = useState<OnboardingStep | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [skipped, setSkipped] = useState(false);
+  const [userCreatedTemplatesCount, setUserCreatedTemplatesCount] = useState(0);
 
   // Load onboarding state from localStorage
   useEffect(() => {
     if (user) {
       const savedSkipped = localStorage.getItem(`onboarding_skipped_${user.id}`);
+      const savedTemplateCount = localStorage.getItem(`user_templates_count_${user.id}`);
+      
       if (savedSkipped === 'true') {
         setSkipped(true);
+      }
+      
+      if (savedTemplateCount) {
+        setUserCreatedTemplatesCount(parseInt(savedTemplateCount, 10));
       }
     }
   }, [user]);
@@ -46,6 +55,14 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  const incrementUserTemplates = () => {
+    if (user) {
+      const newCount = userCreatedTemplatesCount + 1;
+      setUserCreatedTemplatesCount(newCount);
+      localStorage.setItem(`user_templates_count_${user.id}`, newCount.toString());
+    }
+  };
+
   const isOnboardingActive = !skipped && activeStep !== null;
 
   return (
@@ -58,6 +75,8 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
         completeStep,
         skipOnboarding,
         isOnboardingActive,
+        userCreatedTemplatesCount,
+        incrementUserTemplates,
       }}
     >
       {children}

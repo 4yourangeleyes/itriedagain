@@ -40,6 +40,12 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveC
 
     try {
       await saveClient(newClient);
+      
+      // Complete onboarding step immediately after saving
+      if (activeStep === 'client') {
+        completeStep('client');
+      }
+      
       setIsAddingClient(false);
       setNewClientName('');
       setNewClientEmail('');

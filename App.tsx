@@ -5,7 +5,7 @@ import { Menu, Plus, Settings as SettingsIcon, LogOut, Moon, Sun, Loader } from 
 import { PLUMBING_TEMPLATES } from './services/plumbingData';
 import { getIndustryTemplates, getIndustryExampleInvoice } from './services/industryData';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { OnboardingProvider } from './context/OnboardingContext';
+import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import supabaseClient from './services/supabaseClient';
 import { useDocuments } from './hooks/useDocuments';
 import { useClients } from './hooks/useClients';
@@ -215,6 +215,7 @@ export default function App() {
 const AppRoutes: React.FC<any> = (props) => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading, profile, signOut } = useAuth();
+  const { completeStep, activeStep } = useOnboarding();
   
   // Document creation wizard state
   const [showWizard, setShowWizard] = useState(false);
@@ -355,6 +356,12 @@ const AppRoutes: React.FC<any> = (props) => {
     };
     
     props.setCurrentDoc(newDoc);
+    
+    // Complete the document milestone if this is part of onboarding
+    if (activeStep === 'document') {
+      completeStep('document');
+    }
+    
     setShowWizard(false);
     navigate('/canvas');
     triggerHaptic('success');

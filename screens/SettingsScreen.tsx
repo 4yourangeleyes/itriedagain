@@ -245,6 +245,15 @@ const SettingsScreen: React.FC = () => {
         if (isAuthenticated) {
           await refreshProfile();
         }
+        
+        // Check if profile is now complete for onboarding
+        if (activeStep === 'profile') {
+          // Check if all required fields are filled
+          const isComplete = !!(localFullName && localCompanyName && localEmail);
+          if (isComplete) {
+            completeStep('profile');
+          }
+        }
       }
     } catch (err) {
       console.error('[SettingsScreen] Supabase save error:', err);
