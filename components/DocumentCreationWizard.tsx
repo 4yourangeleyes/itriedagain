@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, User, UserPlus, FileText, FileSignature, ArrowLeft, ArrowRight,
   FileCheck, Rocket, RefreshCw, Lock, Users, Briefcase, Lightbulb,
-  Wrench, FileCode, Handshake, LifeBuoy
+  Wrench, FileCode, Handshake, LifeBuoy, Sparkles
 } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Client, DocType, ContractType } from '../types';
+import { useOnboarding } from '../context/OnboardingContext';
 
 interface DocumentCreationWizardProps {
   onClose: () => void;
@@ -27,6 +28,7 @@ export const DocumentCreationWizard: React.FC<DocumentCreationWizardProps> = ({
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedDocType, setSelectedDocType] = useState<DocType | null>(null);
   const [selectedContractType, setSelectedContractType] = useState<ContractType | null>(null);
+  const { activeStep, completeStep } = useOnboarding();
   
   // New client form
   const [showNewClientForm, setShowNewClientForm] = useState(false);
@@ -37,6 +39,9 @@ export const DocumentCreationWizard: React.FC<DocumentCreationWizardProps> = ({
     address: '',
     registrationNumber: ''
   });
+
+  // Show guide hint if on document onboarding step
+  const showOnboardingHint = activeStep === 'document';
 
   const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
@@ -114,6 +119,12 @@ export const DocumentCreationWizard: React.FC<DocumentCreationWizardProps> = ({
               {currentStep === 'docType' && 'Document Type'}
               {currentStep === 'contractType' && 'Contract Type'}
             </h2>
+            {showOnboardingHint && (
+              <div className="ml-3 px-3 py-1 bg-grit-primary text-grit-dark text-xs font-bold rounded-full flex items-center gap-1 animate-pulse">
+                <Sparkles size={14} />
+                STEP 5/5
+              </div>
+            )}
           </div>
           <button 
             onClick={onClose}
@@ -122,6 +133,21 @@ export const DocumentCreationWizard: React.FC<DocumentCreationWizardProps> = ({
             <X size={24} />
           </button>
         </div>
+
+        {/* Onboarding Hint Banner */}
+        {showOnboardingHint && (
+          <div className="bg-blue-50 border-b-2 border-blue-200 p-4">
+            <div className="flex items-start gap-3 max-w-3xl mx-auto">
+              <Sparkles className="text-blue-600 mt-1 flex-shrink-0" size={20} />
+              <div>
+                <p className="font-bold text-blue-900 mb-1">🎉 Almost There! Create Your First Document</p>
+                <p className="text-sm text-blue-700">
+                  Select a client, choose if you want an Invoice or Contract, and we'll take you to the canvas where you can add items, customize everything, and send it to your client. You're doing great!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Progress Indicator */}
         <div className="bg-gray-100 border-b-2 border-gray-300 p-4">

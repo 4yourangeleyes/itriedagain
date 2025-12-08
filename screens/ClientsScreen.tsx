@@ -3,6 +3,8 @@ import { Client, DocumentData } from '../types';
 import { Search, FileText, Mail, MapPin, Phone, Trash2, Plus, X } from 'lucide-react';
 import { Input, TextArea } from '../components/Input';
 import { Button } from '../components/Button';
+import { useOnboarding } from '../context/OnboardingContext';
+import { OnboardingTooltip } from '../components/OnboardingTooltip';
 
 interface ClientsScreenProps {
     clients: Client[];
@@ -19,6 +21,7 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveC
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientReg, setNewClientReg] = useState('');
   const [newClientAddress, setNewClientAddress] = useState('');
+  const { activeStep, showGuide, completeStep } = useOnboarding();
 
   const handleAddClient = async () => {
     if (!newClientName || !newClientEmail) {
@@ -75,9 +78,24 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveC
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button onClick={() => setIsAddingClient(true)} icon={<Plus size={18}/>}>New Client</Button>
+                <Button onClick={() => setIsAddingClient(true)} icon={<Plus size={18}/>} id="add-client-button">New Client</Button>
             </div>
         </div>
+
+        {/* Client Creation Guide */}
+        {activeStep === 'client' && showGuide && !isAddingClient && (
+            <div className="relative mb-6">
+                <OnboardingTooltip
+                    title="Add Your First Client"
+                    description="Click the 'New Client' button above to add your first client. You'll need their business name and email address. You can add more details like phone number and address later."
+                    step="3"
+                    totalSteps="5"
+                    position="bottom"
+                    onNext={() => setIsAddingClient(true)}
+                    onSkip={() => completeStep('client')}
+                />
+            </div>
+        )}
 
         {isAddingClient && (
             <div className="bg-gray-100 border-2 border-grit-dark p-6 mb-6">

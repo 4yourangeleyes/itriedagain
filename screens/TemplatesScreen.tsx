@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, Trash2, FileText, FileBox } from 'lucide-react';
 import { TemplateBlock, DocType } from '../types';
 import { Input, TextArea } from '../components/Input';
+import { useOnboarding } from '../context/OnboardingContext';
+import { OnboardingTooltip } from '../components/OnboardingTooltip';
 
 interface TemplatesScreenProps {
   templates: TemplateBlock[];
@@ -17,6 +19,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   const [tempType, setTempType] = useState<DocType>(DocType.INVOICE);
   const [tempItems, setTempItems] = useState<any[]>([]);
   const [tempClauseContent, setTempClauseContent] = useState('');
+  const { activeStep, showGuide, completeStep } = useOnboarding();
 
   const handleAddTemplate = async () => {
     if (!tempName) return;
@@ -72,10 +75,26 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
         <button
           onClick={() => setShowAddTemplate(!showAddTemplate)}
           className="mb-6 bg-grit-primary text-grit-dark font-bold px-6 py-3 border-2 border-grit-dark shadow-grit hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none transition-all flex items-center gap-2"
+          id="add-template-button"
         >
           <Plus size={20} />
           {showAddTemplate ? 'Cancel' : 'New Template'}
         </button>
+
+        {/* Template Creation Guide */}
+        {activeStep === 'templates' && showGuide && !showAddTemplate && templates.length < 3 && (
+            <div className="relative mb-6">
+                <OnboardingTooltip
+                    title="Create Your Templates"
+                    description="Templates save you time! Click 'New Template' to create reusable invoice or contract templates. Create at least 3 templates for common services you offer. You can add line items, clauses, and pricing that you use frequently."
+                    step="4"
+                    totalSteps="5"
+                    position="bottom"
+                    onNext={() => setShowAddTemplate(true)}
+                    onSkip={() => completeStep('templates')}
+                />
+            </div>
+        )}
 
         {/* Add Template Form */}
         {showAddTemplate && (

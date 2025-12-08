@@ -5,6 +5,7 @@ import { Menu, Plus, Settings as SettingsIcon, LogOut, Moon, Sun, Loader } from 
 import { PLUMBING_TEMPLATES } from './services/plumbingData';
 import { getIndustryTemplates, getIndustryExampleInvoice } from './services/industryData';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { OnboardingProvider } from './context/OnboardingContext';
 import supabaseClient from './services/supabaseClient';
 import { useDocuments } from './hooks/useDocuments';
 import { useClients } from './hooks/useClients';
@@ -195,14 +196,16 @@ export default function App() {
   return (
     <HashRouter>
       <AuthProvider>
-        <AppRoutes 
-          currentDoc={currentDoc}
-          setCurrentDoc={setCurrentDoc}
-          handleDocumentCreated={handleDocumentCreated}
-          handleDuplicateLast={handleDuplicateLast}
-          itemUsage={itemUsage}
-          trackItemUsage={trackItemUsage}
-        />
+        <OnboardingProvider>
+          <AppRoutes 
+            currentDoc={currentDoc}
+            setCurrentDoc={setCurrentDoc}
+            handleDocumentCreated={handleDocumentCreated}
+            handleDuplicateLast={handleDuplicateLast}
+            itemUsage={itemUsage}
+            trackItemUsage={trackItemUsage}
+          />
+        </OnboardingProvider>
       </AuthProvider>
     </HashRouter>
   );

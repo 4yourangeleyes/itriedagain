@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePlus, Users, FileStack, Copy, TrendingUp, CheckCircle2, Circle } from 'lucide-react';
+import { FilePlus, Users, FileStack, Copy, TrendingUp, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { DocumentData, UserProfile, Client } from '../types';
 import { AuditScorecard } from '../components/AuditScorecard';
 import { useTemplates } from '../hooks/useTemplates';
+import { useOnboarding } from '../context/OnboardingContext';
 
 interface DashboardScreenProps {
     documents: DocumentData[];
@@ -16,6 +17,7 @@ interface DashboardScreenProps {
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, profile, onCloneLast, onShowWizard }) => {
   const navigate = useNavigate();
   const { templates } = useTemplates();
+  const { setActiveStep, setShowGuide, skipOnboarding } = useOnboarding();
 
   // Money Pulse Logic
   const weeklyRevenue = documents
@@ -24,11 +26,52 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, p
   
   // Onboarding Progress Logic
   const milestones = [
-    { id: 'account', label: 'Account Created', completed: true }, // Always true if viewing dashboard
-    { id: 'profile', label: 'Profile Completed', completed: !!(profile.fullName && profile.companyName && profile.email) },
-    { id: 'client', label: 'First Client Saved', completed: clients.length > 0 },
-    { id: 'templates', label: '3+ Templates Created', completed: templates.length >= 3 },
-    { id: 'document', label: 'First Document Created', completed: documents.length > 0 },
+    { 
+      id: 'account', 
+      label: 'Account Created', 
+      completed: true, 
+      action: null 
+    },
+    { 
+      id: 'profile', 
+      label: 'Profile Completed', 
+      completed: !!(profile.fullName && profile.companyName && profile.email),
+      action: () => {
+        setActiveStep('profile');
+        setShowGuide(true);
+        navigate('/settings');
+      }
+    },
+    { 
+      id: 'client', 
+      label: 'First Client Saved', 
+      completed: clients.length > 0,
+      action: () => {
+        setActiveStep('client');
+        setShowGuide(true);
+        navigate('/clients');
+      }
+    },
+    { 
+      id: 'templates', 
+      label: '3+ Templates Created', 
+      completed: templates.length >= 3,
+      action: () => {
+        setActiveStep('templates');
+        setShowGuide(true);
+        navigate('/templates');
+      }
+    },
+    { 
+      id: 'document', 
+      label: 'First Document Created', 
+      completed: documents.length > 0,
+      action: () => {
+        setActiveStep('document');
+        setShowGuide(true);
+        onShowWizard();
+      }
+    },
   ];
   const completedMilestones = milestones.filter(m => m.completed).length;
   const onboardingProgress = Math.round((completedMilestones / milestones.length) * 100);
@@ -62,23 +105,45 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, p
           {/* Onboarding Progress */}
           {onboardingProgress < 100 && (
               <div className="flex-1 bg-blue-50 p-6 shadow-grit border-4 border-grit-dark">
-                  <div className="flex items-center gap-2 mb-3">
-                      <CheckCircle2 size={20} className="text-blue-600" />
-                      <span className="font-bold text-sm uppercase tracking-widest text-gray-600">Setup Progress</span>
+                  <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                          <CheckCircle2 size={20} className="text-blue-600" />
+                          <span className="font-bold text-sm uppercase tracking-widest text-gray-600">Setup Progress</span>
+                      </div>
+                      <button 
+                          onClick={skipOnboarding}
+                          className="text-xs text-gray-500 hover:text-gray-700 underline"
+                      >
+                          Skip
+                      </button>
                   </div>
                   <p className="text-3xl font-bold mb-4 text-grit-dark">{onboardingProgress}% Complete</p>
                   <div className="space-y-2">
                       {milestones.map(milestone => (
-                          <div key={milestone.id} className="flex items-center gap-2 text-sm">
+                          <button
+                              key={milestone.id}
+                              onClick={milestone.action || undefined}
+                              disabled={milestone.completed || !milestone.action}
+                              className={`w-full flex items-center gap-2 text-sm p-2 rounded transition-colors ${
+                                  milestone.completed 
+                                      ? 'bg-white/50' 
+                                      : milestone.action 
+                                          ? 'hover:bg-blue-100 cursor-pointer group' 
+                                          : 'cursor-default'
+                              }`}
+                          >
                               {milestone.completed ? (
                                   <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
                               ) : (
-                                  <Circle size={16} className="text-gray-400 flex-shrink-0" />
+                                  <Circle size={16} className="text-gray-400 flex-shrink-0 group-hover:text-blue-500" />
                               )}
-                              <span className={`font-bold ${milestone.completed ? 'text-gray-700' : 'text-gray-400'}`}>
+                              <span className={`font-bold flex-1 text-left ${milestone.completed ? 'text-gray-700' : 'text-gray-600 group-hover:text-blue-700'}`}>
                                   {milestone.label}
                               </span>
-                          </div>
+                              {!milestone.completed && milestone.action && (
+                                  <ArrowRight size={14} className="text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              )}
+                          </button>
                       ))}
                   </div>
               </div>

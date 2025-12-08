@@ -7,6 +7,8 @@ import { triggerHaptic } from '../App';
 import { SystemDiagnostics } from '../components/SystemDiagnostics';
 import { User, Briefcase, Edit2, Globe, Upload, Loader2, X, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOnboarding } from '../context/OnboardingContext';
+import { OnboardingTooltip } from '../components/OnboardingTooltip';
 
 const CURRENCIES = [
     { code: '$', label: 'Dollar ($)' },
@@ -19,6 +21,7 @@ const CURRENCIES = [
 
 const SettingsScreen: React.FC = () => {
   const { refreshProfile, isAuthenticated, profile: authProfile, user } = useAuth();
+  const { activeStep, showGuide, completeStep } = useOnboarding();
   
   // Local state for form inputs to make them editable
   const [localFullName, setLocalFullName] = useState('');
@@ -400,6 +403,7 @@ const SettingsScreen: React.FC = () => {
                                   onChange={e => handleLocalChange('fullName', e.target.value)}
                                   onBlur={e => handleProfileUpdate('fullName', e.target.value)}
                                   placeholder="Enter your full name"
+                                  id="profile-fullname-input"
                                 />
                             </div>
                             <div className="border-2 border-blue-300 bg-white p-3 rounded hover:border-blue-500 transition-colors cursor-text">
@@ -411,8 +415,32 @@ const SettingsScreen: React.FC = () => {
                                   placeholder="your.email@example.com"
                                 />
                             </div>
+                            <div className="border-2 border-blue-300 bg-white p-3 rounded hover:border-blue-500 transition-colors cursor-text">
+                                <Input 
+                                  label="Company Name" 
+                                  value={localCompanyName} 
+                                  onChange={e => handleLocalChange('companyName', e.target.value)}
+                                  onBlur={e => handleProfileUpdate('companyName', e.target.value)}
+                                  placeholder="Your Business Name"
+                                />
+                            </div>
                         </div>
                     </div>
+                    
+                    {/* Profile Completion Guide */}
+                    {activeStep === 'profile' && showGuide && (
+                        <div className="relative">
+                            <OnboardingTooltip
+                                title="Complete Your Profile"
+                                description="Fill in your full name, email, and company name above. This information will appear on all your invoices and contracts, so make sure it's accurate and professional!"
+                                step="2"
+                                totalSteps="5"
+                                position="bottom"
+                                onNext={() => completeStep('profile')}
+                                onSkip={() => completeStep('profile')}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
             {activeTab === 'business' && (
