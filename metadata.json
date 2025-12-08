@@ -1,0 +1,7 @@
+{
+  "name": "gritDocs",
+  "description": "A minimalist, AI-powered document generator for service businesses. Create invoices, contracts, and HR docs effortlessly.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

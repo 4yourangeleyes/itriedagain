@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Supabase Connection Test</title>
+</head>
+<body>
+  <h1>Supabase Connection Test</h1>
+  <button onclick="testConnection()">Test Connection</button>
+  <div id="result" style="margin-top: 20px; font-family: monospace; white-space: pre-wrap;"></div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const supabaseUrl = 'https://fopyamyrykwtlwgefxuq.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvcHlhbXlyeWt3dGx3Z2VmeHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3OTgyMDAsImV4cCI6MjA3ODM3NDIwMH0.V9nIiQ0rUakLLeG88UgRoXDMG6SwohmFB95LGP3te8k';
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    window.testConnection = async function() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.textContent = 'Testing connection...\n';
+
+      try {
+        // Test 1: Check if Supabase URL is reachable
+        resultDiv.textContent += 'Test 1: Checking Supabase URL...\n';
+        const pingResponse = await fetch(supabaseUrl + '/rest/v1/');
+        resultDiv.textContent += `  Response status: ${pingResponse.status}\n`;
+        resultDiv.textContent += `  Response OK: ${pingResponse.ok}\n\n`;
+
+        // Test 2: Try to query user_profiles with timeout
+        resultDiv.textContent += 'Test 2: Querying user_profiles table (10s timeout)...\n';
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+        );
+        
+        const queryPromise = supabase
+          .from('user_profiles')
+          .select('*')
+          .limit(1);
+        
+        const result = await Promise.race([queryPromise, timeoutPromise]);
+        
+        resultDiv.textContent += `  Query result: ${JSON.stringify(result, null, 2)}\n`;
+        resultDiv.textContent += '\n✅ All tests passed!\n';
+
+      } catch (error) {
+        resultDiv.textContent += `\n❌ Error: ${error.message}\n`;
+        resultDiv.textContent += `Full error: ${JSON.stringify(error, null, 2)}\n`;
+      }
+    };
+  </script>
+</body>
+</html>

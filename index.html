@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gritDocs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Architects+Daughter&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              grit: {
+                bg: '#F5F5F5',
+                primary: '#48CFCB',
+                secondary: '#229799',
+                dark: '#424242',
+                white: '#ffffff',
+                warm: '#ECE5DD', // Night/Admin mode base
+              }
+            },
+            fontFamily: {
+              sans: ['"Space Grotesk"', 'sans-serif'],
+              draft: ['"Architects Daughter"', 'cursive'],
+              ui: ['"Inter"', 'sans-serif'],
+              mono: ['"Space Mono"', '"JetBrains Mono"', 'monospace'],
+              serif: ['"EB Garamond"', 'serif'],
+            },
+            boxShadow: {
+              'grit': '4px 4px 0px 0px #424242',
+              'grit-sm': '2px 2px 0px 0px #424242',
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #F5F5FF;
+        color: #424242;
+      }
+      .admin-mode {
+        background-color: #ECE5DD;
+      }
+      /* Custom scrollbar for that raw feel */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #424242; 
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #229799; 
+      }
+      /* For barcode simulation */
+      @font-face {
+        font-family: 'Libre Barcode 39';
+        font-style: normal;
+        font-weight: 400;
+        src: local('Libre Barcode 39'), url(https://fonts.gstatic.com/s/librebarcode39/v14/-nFnOHM08vwC6h8Li1eQopTXUlwU1K5i.woff2) format('woff2');
+      }
+      .font-barcode {
+        font-family: 'Libre Barcode 39', cursive;
+      }
+      
+      /* Print/Multi-page Support */
+      @media print {
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+        }
+        .print\\:hidden {
+          display: none !important;
+        }
+        .print\\:border-0 {
+          border: 0 !important;
+        }
+        .print\\:shadow-none {
+          box-shadow: none !important;
+        }
+      }
+      
+      /* Page break handling */
+      @page {
+        margin: 0;
+        size: A4;
+      }
+      .page-break-before {
+        page-break-before: always;
+        break-before: page;
+      }
+      .page-break-after {
+        page-break-after: always;
+        break-after: page;
+      }
+      .avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
