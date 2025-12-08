@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, FileText, FileBox } from 'lucide-react';
 import { TemplateBlock, DocType } from '../types';
 import { Input, TextArea } from '../components/Input';
 import { useOnboarding } from '../context/OnboardingContext';
 import { OnboardingTooltip } from '../components/OnboardingTooltip';
+import { TemplatePreloadDialog } from '../components/TemplatePreloadDialog';
+import { useAuth } from '../context/AuthContext';
+import { getIndustryTemplates } from '../services/industryData';
 
 interface TemplatesScreenProps {
   templates: TemplateBlock[];
@@ -19,7 +22,15 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   const [tempType, setTempType] = useState<DocType>(DocType.INVOICE);
   const [tempItems, setTempItems] = useState<any[]>([]);
   const [tempClauseContent, setTempClauseContent] = useState('');
-  const { activeStep, showGuide, completeStep, userCreatedTemplatesCount, incrementUserTemplates } = useOnboarding();
+  const { activeStep, showGuide, completeStep, userCreatedTemplatesCount, incrementUserTemplates, templatesPreloaded, setTemplatesPreloaded, showTemplatePreloadDialog, setShowTemplatePreloadDialog } = useOnboarding();
+  const { profile } = useAuth();
+  
+  // Show preload dialog on first visit to templates screen
+  useEffect(() => {
+    if (activeStep === 'templates' && !templatesPreloaded && templates.length === 0) {
+      setShowTemplatePreloadDialog(true);
+    }
+  }, [activeStep, templatesPreloaded, templates.length]);
 
   const handleAddTemplate = async () => {
     if (!tempName) return;
@@ -61,6 +72,25 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
     await deleteTemplate(id);
     setTemplates(templates.filter(t => t.id !== id));
   };
+  
+  const handleLoadIndustryTemplates = async () => {
+    const industry = profile?.industry || 'Web Development';
+    const industryTemplates = getIndustryTemplates(industry);
+    
+    // Save all industry templates
+    for (const template of industryTemplates) {
+      await saveTemplate(template);
+    }
+    
+    setTemplates([...templates, ...industryTemplates]);
+    setTemplatesPreloaded(true);
+    setShowTemplatePreloadDialog(false);
+  };
+  
+  const handleSkipPreload = () => {
+    setTemplatesPreloaded(true); // Mark as handled so dialog doesn't show again
+    setShowTemplatePreloadDialog(false);
+  };
 
   // Group templates by category
   const groupedTemplates = templates.reduce((acc, template) => {
@@ -72,6 +102,16 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
 
   return (
     <div className="h-[calc(100vh-64px)] overflow-y-auto">
+      {/* Template Preload Dialog */}
+      {showTemplatePreloadDialog && profile && (
+        <TemplatePreloadDialog
+          onLoadTemplates={handleLoadIndustryTemplates}
+          onSkip={handleSkipPreload}
+          industry={profile.industry || 'your industry'}
+          templateCount={getIndustryTemplates(profile.industry || 'Web Development').length}
+        />
+      )}
+      
       <div className="max-w-6xl mx-auto p-4 md:p-8">
         {/* Header */}
         <div className="mb-8">

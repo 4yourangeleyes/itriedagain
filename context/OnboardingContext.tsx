@@ -13,6 +13,10 @@ interface OnboardingContextType {
   isOnboardingActive: boolean;
   userCreatedTemplatesCount: number;
   incrementUserTemplates: () => void;
+  templatesPreloaded: boolean;
+  setTemplatesPreloaded: (loaded: boolean) => void;
+  showTemplatePreloadDialog: boolean;
+  setShowTemplatePreloadDialog: (show: boolean) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -23,12 +27,15 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
   const [showGuide, setShowGuide] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const [userCreatedTemplatesCount, setUserCreatedTemplatesCount] = useState(0);
+  const [templatesPreloaded, setTemplatesPreloaded] = useState(false);
+  const [showTemplatePreloadDialog, setShowTemplatePreloadDialog] = useState(false);
 
   // Load onboarding state from localStorage
   useEffect(() => {
     if (user) {
       const savedSkipped = localStorage.getItem(`onboarding_skipped_${user.id}`);
       const savedTemplateCount = localStorage.getItem(`user_templates_count_${user.id}`);
+      const savedPreloaded = localStorage.getItem(`templates_preloaded_${user.id}`);
       
       if (savedSkipped === 'true') {
         setSkipped(true);
@@ -36,6 +43,10 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
       
       if (savedTemplateCount) {
         setUserCreatedTemplatesCount(parseInt(savedTemplateCount, 10));
+      }
+      
+      if (savedPreloaded === 'true') {
+        setTemplatesPreloaded(true);
       }
     }
   }, [user]);
@@ -62,6 +73,13 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
       localStorage.setItem(`user_templates_count_${user.id}`, newCount.toString());
     }
   };
+  
+  const handleSetTemplatesPreloaded = (loaded: boolean) => {
+    if (user) {
+      setTemplatesPreloaded(loaded);
+      localStorage.setItem(`templates_preloaded_${user.id}`, loaded.toString());
+    }
+  };
 
   const isOnboardingActive = !skipped && activeStep !== null;
 
@@ -77,6 +95,10 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
         isOnboardingActive,
         userCreatedTemplatesCount,
         incrementUserTemplates,
+        templatesPreloaded,
+        setTemplatesPreloaded: handleSetTemplatesPreloaded,
+        showTemplatePreloadDialog,
+        setShowTemplatePreloadDialog,
       }}
     >
       {children}
