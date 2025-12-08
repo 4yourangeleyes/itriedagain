@@ -17,7 +17,6 @@ import { getClausesForContractType } from './services/clauseLibrary';
 // Lazy Load Screens for Performance
 const LoginScreen = lazy(() => import('./screens/LoginScreen'));
 const DashboardScreen = lazy(() => import('./screens/DashboardScreen'));
-const ChatScreen = lazy(() => import('./screens/ChatScreenConversational'));
 const CanvasScreen = lazy(() => import('./screens/CanvasScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 const ClientsScreen = lazy(() => import('./screens/ClientsScreen'));
@@ -272,15 +271,9 @@ const AppRoutes: React.FC<any> = (props) => {
     if (!isAuthenticated && !isPublicRoute) {
       console.log('[App] User not authenticated, redirecting to login from:', currentPath);
       navigate('/login', { replace: true });
-    } else if (isAuthenticated && (currentPath === '/login' || currentPath === '/')) {
-      // Don't auto-redirect if sign-up is in progress
-      const signupInProgress = sessionStorage.getItem('signup_in_progress');
-      if (signupInProgress) {
-        console.log('[App] Sign-up in progress, skipping auto-redirect');
-        return;
-      }
-      console.log('[App] User authenticated:', user?.email, '- redirecting to chat');
-      navigate('/chat', { replace: true });
+    } else if (isAuthenticated && currentPath === '/login') {
+      console.log('[App] User authenticated, redirecting to dashboard');
+      navigate('/', { replace: true });
     }
   }, [isLoading, isAuthenticated, user, navigate]);
 
@@ -380,27 +373,17 @@ const AppRoutes: React.FC<any> = (props) => {
             <Route path="/" element={
                !isAuthenticated 
                   ? <Navigate to="/login" replace /> 
-                  : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} /> 
+                  : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} onShowWizard={() => setShowWizard(true)} /> 
             } />
             
             <Route path="/dashboard" element={
                !isAuthenticated 
                   ? <Navigate to="/login" replace />
-                  : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} /> 
+                  : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} onShowWizard={() => setShowWizard(true)} /> 
             } />
             
-            <Route path="/chat" element={
-               !isAuthenticated 
-                  ? <Navigate to="/login" replace />
-                  : <ChatScreen 
-                       clients={clients} 
-                       setClients={setClients} 
-                       profile={profile || INITIAL_PROFILE} 
-                       onDocGenerated={props.handleDocumentCreated} 
-                       templates={templates} 
-                       setTemplates={setTemplates}
-                    /> 
-            } />
+            {/* Redirect old chat route to dashboard */}
+            <Route path="/chat" element={<Navigate to="/" replace />} />
             
             <Route path="/canvas" element={
                !isAuthenticated 

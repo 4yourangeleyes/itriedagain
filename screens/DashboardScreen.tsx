@@ -9,9 +9,10 @@ interface DashboardScreenProps {
     clients: Client[];
     profile: UserProfile;
     onCloneLast: () => boolean;
+    onShowWizard: () => void;
 }
 
-const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, profile, onCloneLast }) => {
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, profile, onCloneLast, onShowWizard }) => {
   const navigate = useNavigate();
 
   // Money Pulse Logic
@@ -85,7 +86,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, p
 
         {/* Create New (Mad Libs) */}
         <button 
-            onClick={() => navigate('/chat')}
+            onClick={onShowWizard}
             className="group bg-grit-primary border-4 border-grit-dark flex flex-col items-center justify-center gap-4 hover:brightness-110 transition-all shadow-grit active:translate-x-1 active:translate-y-1 active:shadow-none p-4"
         >
              <div className="bg-grit-dark p-4 rounded-full border-2 border-grit-white group-hover:scale-110 transition-transform">
