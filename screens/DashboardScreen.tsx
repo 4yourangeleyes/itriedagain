@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePlus, Users, FileStack, Copy, Trophy, TrendingUp } from 'lucide-react';
+import { FilePlus, Users, FileStack, Copy, TrendingUp, CheckCircle2, Circle } from 'lucide-react';
 import { DocumentData, UserProfile, Client } from '../types';
 import { AuditScorecard } from '../components/AuditScorecard';
+import { useTemplates } from '../hooks/useTemplates';
 
 interface DashboardScreenProps {
     documents: DocumentData[];
@@ -14,16 +15,23 @@ interface DashboardScreenProps {
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, profile, onCloneLast, onShowWizard }) => {
   const navigate = useNavigate();
+  const { templates } = useTemplates();
 
   // Money Pulse Logic
   const weeklyRevenue = documents
     .filter(d => d.status === 'Paid' || d.status === 'Sent')
     .reduce((acc, curr) => acc + (curr.total || 0), 0);
   
-  // Profile Gamification Logic
-  const profileFields = [profile.fullName, profile.companyName, profile.taxEnabled, profile.registrationNumber];
-  const filledFields = profileFields.filter(Boolean).length;
-  const profileScore = (filledFields / 4) * 100;
+  // Onboarding Progress Logic
+  const milestones = [
+    { id: 'account', label: 'Account Created', completed: true }, // Always true if viewing dashboard
+    { id: 'profile', label: 'Profile Completed', completed: !!(profile.fullName && profile.companyName && profile.email) },
+    { id: 'client', label: 'First Client Saved', completed: clients.length > 0 },
+    { id: 'templates', label: '3+ Templates Created', completed: templates.length >= 3 },
+    { id: 'document', label: 'First Document Created', completed: documents.length > 0 },
+  ];
+  const completedMilestones = milestones.filter(m => m.completed).length;
+  const onboardingProgress = Math.round((completedMilestones / milestones.length) * 100);
 
   const handleCloneClick = () => {
       if (onCloneLast()) {
@@ -40,29 +48,39 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, p
       {/* Top Widgets */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
           {/* Money Pulse */}
-          <div className="flex-1 bg-grit-dark text-grit-primary p-6 shadow-grit border-2 border-grit-dark">
+          <div className="flex-1 bg-white p-6 shadow-grit border-4 border-grit-dark">
               <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={20} />
-                  <span className="font-bold text-sm uppercase tracking-widest text-gray-400">Revenue Pulse</span>
+                  <TrendingUp size={20} className="text-green-600" />
+                  <span className="font-bold text-sm uppercase tracking-widest text-gray-600">Revenue Pulse</span>
               </div>
-              <p className="text-4xl md:text-5xl font-mono font-bold mb-4">{profile.currency}{weeklyRevenue.toLocaleString()}</p>
-              <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                  <div className="bg-grit-primary h-full transition-all duration-1000" style={{ width: `${Math.min(weeklyRevenue / 100, 100)}%` }}></div>
+              <p className="text-4xl md:text-5xl font-mono font-bold mb-4 text-grit-dark">{profile.currency}{weeklyRevenue.toLocaleString()}</p>
+              <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+                  <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${Math.min(weeklyRevenue / 100, 100)}%` }}></div>
               </div>
           </div>
 
-          {/* Profile Gamification */}
-          {profileScore < 100 && (
-              <div className="flex-1 bg-grit-white p-6 shadow-grit border-2 border-grit-dark flex flex-col justify-between">
-                  <div>
-                      <div className="flex items-center gap-2 mb-2 text-grit-secondary">
-                          <Trophy size={20} />
-                          <span className="font-bold text-sm uppercase tracking-widest">Profile Level</span>
-                      </div>
-                      <p className="text-xl font-bold mb-1">Your profile is {profileScore}% Pro.</p>
-                      <p className="text-sm text-gray-500">Add Tax ID/Reg No to look 100% legitimate.</p>
+          {/* Onboarding Progress */}
+          {onboardingProgress < 100 && (
+              <div className="flex-1 bg-blue-50 p-6 shadow-grit border-4 border-grit-dark">
+                  <div className="flex items-center gap-2 mb-3">
+                      <CheckCircle2 size={20} className="text-blue-600" />
+                      <span className="font-bold text-sm uppercase tracking-widest text-gray-600">Setup Progress</span>
                   </div>
-                  <button onClick={() => navigate('/settings')} className="text-left font-bold underline mt-4 hover:text-grit-primary">Complete Profile &rarr;</button>
+                  <p className="text-3xl font-bold mb-4 text-grit-dark">{onboardingProgress}% Complete</p>
+                  <div className="space-y-2">
+                      {milestones.map(milestone => (
+                          <div key={milestone.id} className="flex items-center gap-2 text-sm">
+                              {milestone.completed ? (
+                                  <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+                              ) : (
+                                  <Circle size={16} className="text-gray-400 flex-shrink-0" />
+                              )}
+                              <span className={`font-bold ${milestone.completed ? 'text-gray-700' : 'text-gray-400'}`}>
+                                  {milestone.label}
+                              </span>
+                          </div>
+                      ))}
+                  </div>
               </div>
           )}
       </div>

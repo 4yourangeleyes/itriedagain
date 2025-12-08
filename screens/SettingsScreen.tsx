@@ -24,6 +24,7 @@ const SettingsScreen: React.FC = () => {
   const [localFullName, setLocalFullName] = useState('');
   const [localEmail, setLocalEmail] = useState('');
   const [localCompanyName, setLocalCompanyName] = useState('');
+  const [localIsRegisteredBusiness, setLocalIsRegisteredBusiness] = useState(false);
   const [localRegistrationNumber, setLocalRegistrationNumber] = useState('');
   const [localVatNumber, setLocalVatNumber] = useState('');
   const [localBusinessType, setLocalBusinessType] = useState<1 | 2>(2);
@@ -134,6 +135,7 @@ const SettingsScreen: React.FC = () => {
       setLocalFullName(authProfile.fullName || '');
       setLocalEmail(authProfile.email || '');
       setLocalCompanyName(authProfile.companyName || '');
+      setLocalIsRegisteredBusiness(authProfile.isRegisteredBusiness || false);
       setLocalRegistrationNumber(authProfile.registrationNumber || '');
       setLocalVatNumber(authProfile.vatRegistrationNumber || '');
       setLocalBusinessType(authProfile.businessType || 2);
@@ -194,6 +196,7 @@ const SettingsScreen: React.FC = () => {
   const fieldToColumnMap: Record<string, string> = {
     fullName: 'full_name',
     companyName: 'company_name',
+    isRegisteredBusiness: 'is_registered_business',
     registrationNumber: 'registration_number',
     vatRegistrationNumber: 'vat_registration_number',
     businessType: 'business_type',
@@ -254,6 +257,7 @@ const SettingsScreen: React.FC = () => {
       case 'fullName': setLocalFullName(value as string); break;
       case 'email': setLocalEmail(value as string); break;
       case 'companyName': setLocalCompanyName(value as string); break;
+      case 'isRegisteredBusiness': setLocalIsRegisteredBusiness(value as boolean); break;
       case 'registrationNumber': setLocalRegistrationNumber(value as string); break;
       case 'vatRegistrationNumber': setLocalVatNumber(value as string); break;
       case 'businessType': setLocalBusinessType(value as 1 | 2); break;
@@ -414,6 +418,32 @@ const SettingsScreen: React.FC = () => {
             {activeTab === 'business' && (
                 <div className="space-y-8 animate-in fade-in">
                     <h2 className="text-3xl font-bold border-b-4 border-grit-secondary pb-4 inline-block">Business Details</h2>
+                    
+                    {/* Business Registration Toggle */}
+                    <div className="bg-purple-50 border-2 border-purple-200 p-6 rounded-lg">
+                        <div className="flex items-center gap-3 mb-2">
+                            <input 
+                                type="checkbox" 
+                                id="isRegistered"
+                                checked={localIsRegisteredBusiness} 
+                                onChange={e => {
+                                    const checked = e.target.checked;
+                                    handleLocalChange('isRegisteredBusiness', checked);
+                                    handleProfileUpdate('isRegisteredBusiness', checked);
+                                }} 
+                                className="w-5 h-5 cursor-pointer"
+                            />
+                            <label htmlFor="isRegistered" className="font-bold text-lg text-purple-900 cursor-pointer">
+                                My business is registered
+                            </label>
+                        </div>
+                        <p className="text-sm text-purple-700 ml-8">
+                            {localIsRegisteredBusiness 
+                                ? '✓ Great! Fill in your registration details below.' 
+                                : 'Toggle this on if you have a registered company/CC with registration numbers.'}
+                        </p>
+                    </div>
+                    
                     <div className="bg-green-50 border-2 border-green-200 p-6 rounded-lg">
                         <div className="flex items-center gap-2 mb-4">
                             <Edit2 size={18} className="text-green-600" />
@@ -428,46 +458,52 @@ const SettingsScreen: React.FC = () => {
                                   onBlur={e => handleProfileUpdate('companyName', e.target.value)}
                                 />
                             </div>
-                            <div className="border-2 border-green-300 bg-white p-3 rounded hover:border-green-500 transition-colors cursor-text">
-                                <Input 
-                                  label="Registration Number" 
-                                  value={localRegistrationNumber} 
-                                  onChange={e => handleLocalChange('registrationNumber', e.target.value)}
-                                  onBlur={e => handleProfileUpdate('registrationNumber', e.target.value)}
-                                />
-                            </div>
                             
-                            {/* SA COMPLIANCE SECTION */}
-                            <div className="border-2 border-orange-300 bg-orange-50 p-4 rounded-lg">
-                                <p className="text-xs font-bold text-orange-700 mb-3 uppercase tracking-wide">South African Tax Compliance</p>
-                                <div className="space-y-3">
-                                    <div className="border-2 border-orange-200 bg-white p-2 rounded">
+                            {/* Only show registration fields if business is registered */}
+                            {localIsRegisteredBusiness && (
+                                <>
+                                    <div className="border-2 border-green-300 bg-white p-3 rounded hover:border-green-500 transition-colors cursor-text">
                                         <Input 
-                                            label="VAT Registration Number" 
-                                            value={localVatNumber} 
-                                            onChange={e => handleLocalChange('vatRegistrationNumber', e.target.value)}
-                                            onBlur={e => handleProfileUpdate('vatRegistrationNumber', e.target.value)}
-                                            placeholder="e.g., 4123456789" 
+                                          label="Registration Number" 
+                                          value={localRegistrationNumber} 
+                                          onChange={e => handleLocalChange('registrationNumber', e.target.value)}
+                                          onBlur={e => handleProfileUpdate('registrationNumber', e.target.value)}
                                         />
                                     </div>
-                                    <div className="border-2 border-orange-200 bg-white p-2 rounded">
-                                        <label className="block text-xs font-bold text-orange-700 mb-2">Business Type</label>
-                                        <select 
-                                            value={localBusinessType} 
-                                            onChange={e => {
-                                              const value = parseInt(e.target.value) as 1 | 2;
-                                              handleLocalChange('businessType', value);
-                                              handleProfileUpdate('businessType', value);
-                                            }}
-                                            className="w-full border-2 border-orange-300 p-2 font-bold focus:outline-none"
-                                        >
-                                            <option value={1}>Registered (Company/CC)</option>
-                                            <option value={2}>Unregistered/Sole Proprietor</option>
-                                        </select>
+                                    
+                                    {/* SA COMPLIANCE SECTION */}
+                                    <div className="border-2 border-orange-300 bg-orange-50 p-4 rounded-lg">
+                                        <p className="text-xs font-bold text-orange-700 mb-3 uppercase tracking-wide">South African Tax Compliance</p>
+                                        <div className="space-y-3">
+                                            <div className="border-2 border-orange-200 bg-white p-2 rounded">
+                                                <Input 
+                                                    label="VAT Registration Number" 
+                                                    value={localVatNumber} 
+                                                    onChange={e => handleLocalChange('vatRegistrationNumber', e.target.value)}
+                                                    onBlur={e => handleProfileUpdate('vatRegistrationNumber', e.target.value)}
+                                                    placeholder="e.g., 4123456789" 
+                                                />
+                                            </div>
+                                            <div className="border-2 border-orange-200 bg-white p-2 rounded">
+                                                <label className="block text-xs font-bold text-orange-700 mb-2">Business Type</label>
+                                                <select 
+                                                    value={localBusinessType} 
+                                                    onChange={e => {
+                                                      const value = parseInt(e.target.value) as 1 | 2;
+                                                      handleLocalChange('businessType', value);
+                                                      handleProfileUpdate('businessType', value);
+                                                    }}
+                                                    className="w-full border-2 border-orange-300 p-2 font-bold focus:outline-none"
+                                                >
+                                                    <option value={1}>Registered (Company/CC)</option>
+                                                    <option value={2}>Unregistered/Sole Proprietor</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-orange-600 mt-2">✓ This info auto-populates on invoices for compliance</p>
                                     </div>
-                                </div>
-                                <p className="text-xs text-orange-600 mt-2">✓ This info auto-populates on invoices for compliance</p>
-                            </div>
+                                </>
+                            )}
                             
                             <div className="border-2 border-green-300 bg-white p-3 rounded hover:border-green-500 transition-colors cursor-text">
                                 <Input 

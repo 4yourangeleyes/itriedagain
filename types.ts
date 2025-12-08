@@ -125,6 +125,7 @@ export interface UserProfile {
   email: string;
   companyName: string;
   industry?: string;
+  isRegisteredBusiness?: boolean; // Toggle for business registration status
   registrationNumber?: string;
   vatRegistrationNumber?: string; // SA VAT compliance
   businessType?: 1 | 2; // 1 = registered, 2 = unregistered
