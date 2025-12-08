@@ -1,0 +1,209 @@
+import React, { useState } from 'react';
+import { Plus, Trash2, FileText, FileBox } from 'lucide-react';
+import { TemplateBlock, DocType } from '../types';
+import { Input, TextArea } from '../components/Input';
+
+interface TemplatesScreenProps {
+  templates: TemplateBlock[];
+  setTemplates: React.Dispatch<React.SetStateAction<TemplateBlock[]>>;
+  saveTemplate: (template: TemplateBlock) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+}
+
+const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplates, saveTemplate, deleteTemplate }) => {
+  const [showAddTemplate, setShowAddTemplate] = useState(false);
+  const [tempName, setTempName] = useState('');
+  const [tempCategory, setTempCategory] = useState('My Templates');
+  const [tempType, setTempType] = useState<DocType>(DocType.INVOICE);
+  const [tempItems, setTempItems] = useState<any[]>([]);
+  const [tempClauseContent, setTempClauseContent] = useState('');
+
+  const handleAddTemplate = async () => {
+    if (!tempName) return;
+    
+    const newTemplate: TemplateBlock = {
+      id: Date.now().toString(),
+      name: tempName,
+      category: tempCategory,
+      type: tempType,
+      items: tempType === DocType.INVOICE ? tempItems : undefined,
+      clause: tempType === DocType.CONTRACT ? {
+        id: '1',
+        title: tempName,
+        content: tempClauseContent || 'Template content'
+      } : undefined
+    };
+
+    await saveTemplate(newTemplate);
+    setTemplates([...templates, newTemplate]);
+    
+    // Reset form
+    setTempName('');
+    setTempCategory('My Templates');
+    setTempType(DocType.INVOICE);
+    setTempItems([]);
+    setTempClauseContent('');
+    setShowAddTemplate(false);
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    await deleteTemplate(id);
+    setTemplates(templates.filter(t => t.id !== id));
+  };
+
+  // Group templates by category
+  const groupedTemplates = templates.reduce((acc, template) => {
+    const category = template.category || 'Uncategorized';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(template);
+    return acc;
+  }, {} as Record<string, TemplateBlock[]>);
+
+  return (
+    <div className="h-[calc(100vh-64px)] overflow-y-auto">
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Your Templates</h1>
+          <p className="text-gray-600">Create and manage reusable templates for invoices and contracts</p>
+        </div>
+
+        {/* Add Template Button */}
+        <button
+          onClick={() => setShowAddTemplate(!showAddTemplate)}
+          className="mb-6 bg-grit-primary text-grit-dark font-bold px-6 py-3 border-2 border-grit-dark shadow-grit hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none transition-all flex items-center gap-2"
+        >
+          <Plus size={20} />
+          {showAddTemplate ? 'Cancel' : 'New Template'}
+        </button>
+
+        {/* Add Template Form */}
+        {showAddTemplate && (
+          <div className="bg-white border-2 border-grit-dark p-6 mb-8 shadow-grit">
+            <h3 className="font-bold text-xl mb-4">Create New Template</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block font-bold mb-1">Template Name</label>
+                <Input
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  placeholder="e.g., Standard Invoice, Service Agreement"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">Category</label>
+                <Input
+                  value={tempCategory}
+                  onChange={(e) => setTempCategory(e.target.value)}
+                  placeholder="e.g., My Templates, Client Name"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">Type</label>
+                <select
+                  value={tempType}
+                  onChange={(e) => setTempType(e.target.value as DocType)}
+                  className="w-full border-2 border-gray-300 p-2 font-sans"
+                >
+                  <option value={DocType.INVOICE}>Invoice</option>
+                  <option value={DocType.CONTRACT}>Contract</option>
+                </select>
+              </div>
+
+              {tempType === DocType.CONTRACT && (
+                <div>
+                  <label className="block font-bold mb-1">Clause Content</label>
+                  <TextArea
+                    value={tempClauseContent}
+                    onChange={(e) => setTempClauseContent(e.target.value)}
+                    placeholder="Enter the clause text..."
+                    rows={6}
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleAddTemplate}
+                disabled={!tempName}
+                className="bg-grit-dark text-white font-bold px-6 py-2 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Template
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Templates Grid - Grouped by Category */}
+        {Object.keys(groupedTemplates).length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 border-2 border-dashed border-gray-300">
+            <FileBox size={48} className="mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 font-bold">No templates yet</p>
+            <p className="text-sm text-gray-400">Create your first template to get started</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
+              <div key={category}>
+                <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-grit-dark">
+                  {category}
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({categoryTemplates.length})
+                  </span>
+                </h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categoryTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="bg-white border-2 border-gray-200 p-4 relative group hover:border-grit-dark transition-all"
+                    >
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete template"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+
+                      {/* Type Badge */}
+                      <div className="flex justify-between mb-2">
+                        <span className={`text-xs font-bold px-2 py-1 ${
+                          template.type === DocType.INVOICE 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {template.type}
+                        </span>
+                      </div>
+
+                      {/* Template Name */}
+                      <div className="flex items-start gap-2">
+                        <FileText size={20} className="text-grit-dark mt-1 flex-shrink-0" />
+                        <h3 className="font-bold text-lg">{template.name}</h3>
+                      </div>
+
+                      {/* Item Count / Clause Info */}
+                      <p className="text-sm text-gray-500 mt-2">
+                        {template.type === DocType.INVOICE && template.items
+                          ? `${template.items.length} items`
+                          : template.type === DocType.CONTRACT && template.clause
+                          ? 'Contract clause'
+                          : 'Template ready'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TemplatesScreen;

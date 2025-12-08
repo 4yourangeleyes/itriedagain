@@ -22,6 +22,7 @@ const CanvasScreen = lazy(() => import('./screens/CanvasScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 const ClientsScreen = lazy(() => import('./screens/ClientsScreen'));
 const DocumentsScreen = lazy(() => import('./screens/DocumentsScreen'));
+const TemplatesScreen = lazy(() => import('./screens/TemplatesScreen'));
 const PublicInvoiceView = lazy(() => import('./screens/PublicInvoiceView'));
 
 // Loading Component
@@ -121,11 +122,11 @@ const Layout: React.FC<{
         
         <nav className="flex flex-col gap-4">
           <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Dashboard</button>
-          <button onClick={() => { navigate('/chat'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">AI Chat</button>
           <button onClick={() => { setIsMenuOpen(false); onShowWizard(); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Create Document</button>
           <button onClick={() => { navigate('/documents'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Documents</button>
           <button onClick={() => { navigate('/clients'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Clients</button>
-          <button onClick={() => { navigate('/settings'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Settings & Profile</button>
+          <button onClick={() => { navigate('/templates'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Templates</button>
+          <button onClick={() => { navigate('/settings'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Settings</button>
         </nav>
 
         <div className="mt-auto pt-8 border-t-2 border-grit-dark">
@@ -379,17 +380,13 @@ const AppRoutes: React.FC<any> = (props) => {
             <Route path="/" element={
                !isAuthenticated 
                   ? <Navigate to="/login" replace /> 
-                  : documents.length === 0 
-                     ? <Navigate to="/chat" replace /> 
-                     : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} /> 
+                  : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} /> 
             } />
             
             <Route path="/dashboard" element={
                !isAuthenticated 
                   ? <Navigate to="/login" replace />
-                  : documents.length === 0 
-                     ? <Navigate to="/chat" replace /> 
-                     : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} /> 
+                  : <DashboardScreen documents={documents} clients={clients} profile={profile || INITIAL_PROFILE} onCloneLast={() => props.handleDuplicateLast(documents)} /> 
             } />
             
             <Route path="/chat" element={
@@ -424,7 +421,8 @@ const AppRoutes: React.FC<any> = (props) => {
 
             <Route path="/documents" element={!isAuthenticated ? <Navigate to="/login" replace /> : <DocumentsScreen documents={documents} openDocument={props.setCurrentDoc} />} />
             <Route path="/clients" element={!isAuthenticated ? <Navigate to="/login" replace /> : <ClientsScreen clients={clients} documents={documents} saveClient={saveClient} deleteClient={deleteClient} />} />
-            <Route path="/settings" element={!isAuthenticated ? <Navigate to="/login" replace /> : <SettingsScreen clients={clients} setClients={setClients} templates={templates} setTemplates={setTemplates} saveClient={saveClient} deleteClient={deleteClient} />} />
+            <Route path="/templates" element={!isAuthenticated ? <Navigate to="/login" replace /> : <TemplatesScreen templates={templates} setTemplates={setTemplates} saveTemplate={saveTemplate} deleteTemplate={deleteTemplate} />} />
+            <Route path="/settings" element={!isAuthenticated ? <Navigate to="/login" replace /> : <SettingsScreen />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>

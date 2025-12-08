@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, Client, TemplateBlock, DocType, InvoiceItem } from '../types';
+import { UserProfile, Client } from '../types';
 import { Input, TextArea } from '../components/Input';
 import { Button } from '../components/Button';
 import { supabase as supabaseClient } from '../services/supabaseClient';
 import { triggerHaptic } from '../App';
 import { SystemDiagnostics } from '../components/SystemDiagnostics';
-import { User, Briefcase, FileBox, Users, Edit2, Globe, Upload, Loader2, X, Plus, Trash2, Activity } from 'lucide-react';
+import { User, Briefcase, Edit2, Globe, Upload, Loader2, X, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-interface SettingsProps {
-  clients: Client[];
-  setClients: React.Dispatch<React.SetStateAction<Client[]>>;
-  templates: TemplateBlock[];
-  setTemplates: React.Dispatch<React.SetStateAction<TemplateBlock[]>>;
-  saveClient: (client: Client) => Promise<any>;
-  deleteClient: (id: string) => Promise<void>;
-}
 
 const CURRENCIES = [
     { code: '$', label: 'Dollar ($)' },
@@ -26,7 +17,7 @@ const CURRENCIES = [
     { code: '₹', label: 'Rupee (₹)' },
 ];
 
-const SettingsScreen: React.FC<SettingsProps> = ({ clients, setClients, templates, setTemplates, saveClient, deleteClient }) => {
+const SettingsScreen: React.FC = () => {
   const { refreshProfile, isAuthenticated, profile: authProfile, user } = useAuth();
   
   // Local state for form inputs to make them editable
@@ -190,23 +181,7 @@ const SettingsScreen: React.FC<SettingsProps> = ({ clients, setClients, template
     });
   }, [isAuthenticated, authProfile, user, localFullName, localEmail, localCompanyName]);
   
-  const [activeTab, setActiveTab] = useState<'profile' | 'business' | 'templates' | 'clients' | 'diagnostics'>('profile');
-
-  // Form States
-  const [isAddingTemplate, setIsAddingTemplate] = useState(false);
-  const [tempType, setTempType] = useState<DocType>(DocType.INVOICE);
-  const [tempName, setTempName] = useState('');
-  const [tempCategory, setTempCategory] = useState('');
-  const [tempItems, setTempItems] = useState<InvoiceItem[]>([]);
-  const [newItemDesc, setNewItemDesc] = useState('');
-  const [newItemPrice, setNewItemPrice] = useState(0);
-  const [newItemQty, setNewItemQty] = useState(1);
-  const [newItemUnit, setNewItemUnit] = useState('ea');
-  const [tempClauseContent, setTempClauseContent] = useState('');
-
-  const [isAddingClient, setIsAddingClient] = useState(false);
-  const [newClientName, setNewClientName] = useState('');
-  const [newClientReg, setNewClientReg] = useState('');
+  const [activeTab, setActiveTab] = useState<'profile' | 'business' | 'diagnostics'>('profile');
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientAddress, setNewClientAddress] = useState('');
@@ -385,7 +360,7 @@ const SettingsScreen: React.FC<SettingsProps> = ({ clients, setClients, template
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="space-y-2">
-            {[{ id: 'profile', label: 'My Profile', icon: <User size={20}/> }, { id: 'business', label: 'Business Info', icon: <Briefcase size={20}/> }, { id: 'templates', label: 'Templates', icon: <FileBox size={20}/> }, { id: 'clients', label: 'Clients', icon: <Users size={20}/> }, { id: 'diagnostics', label: 'Diagnostics', icon: <Activity size={20}/> }].map(tab => (
+            {[{ id: 'profile', label: 'My Profile', icon: <User size={20}/> }, { id: 'business', label: 'Business Info', icon: <Briefcase size={20}/> }, { id: 'diagnostics', label: 'Diagnostics', icon: <Activity size={20}/> }].map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`w-full text-left px-6 py-4 flex items-center gap-4 font-bold border-2 transition-all text-lg ${activeTab === tab.id ? 'bg-grit-dark text-grit-primary border-grit-dark shadow-grit translate-x-1 translate-y-1' : 'bg-white border-transparent hover:border-gray-300'}`}>{tab.icon} {tab.label}</button>
             ))}
         </div>
@@ -623,183 +598,6 @@ const SettingsScreen: React.FC<SettingsProps> = ({ clients, setClients, template
                                 <span className="font-bold text-sm">No logo yet</span>
                             </div>
                          )}
-                    </div>
-                </div>
-            )}
-             {activeTab === 'templates' && (
-                <div className="space-y-8 animate-in fade-in"><div className="flex justify-between items-center border-b-4 border-grit-secondary pb-4"><h2 className="text-3xl font-bold">Template Blocks</h2><Button size="sm" onClick={() => setIsAddingTemplate(true)} icon={<Plus size={18}/>}>New Block</Button></div>
-                    {isAddingTemplate && <div className="bg-gray-100 p-6 border-2 border-grit-dark mb-6"><h3 className="font-bold text-xl mb-4">Create New Template</h3>
-                        <div className="grid gap-4"><div className="flex gap-4"><button onClick={() => setTempType(DocType.INVOICE)} className={`px-4 py-2 border-2 border-grit-dark font-bold ${tempType === DocType.INVOICE ? 'bg-grit-primary' : 'bg-white'}`}>Invoice</button><button onClick={() => setTempType(DocType.CONTRACT)} className={`px-4 py-2 border-2 border-grit-dark font-bold ${tempType === DocType.CONTRACT ? 'bg-grit-primary' : 'bg-white'}`}>Contract</button></div>
-                        <div className="grid grid-cols-2 gap-4"><Input label="Name" value={tempName} onChange={e => setTempName(e.target.value)} /><Input label="Category" value={tempCategory} onChange={e => setTempCategory(e.target.value)} /></div>
-                        {tempType === DocType.INVOICE ? <div className="bg-white border p-4"><div className="space-y-2 mb-2">{tempItems.map(i => <div key={i.id} className="text-sm border p-1">{i.description}</div>)}</div><div className="flex gap-2"><Input placeholder="Item" value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)} /><Button onClick={addItemToBlock}>Add Item</Button></div></div> : <TextArea label="Clause" value={tempClauseContent} onChange={e => setTempClauseContent(e.target.value)} />}
-                        <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setIsAddingTemplate(false)}>Cancel</Button><Button onClick={handleAddTemplate}>Save</Button></div></div></div>}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{templates.map(t => <div key={t.id} className="bg-white border-2 border-gray-200 p-4 relative group hover:border-grit-dark"><button onClick={() => setTemplates(ts => ts.filter(x => x.id !== t.id))} className="absolute top-2 right-2 text-gray-300 hover:text-red-500"><Trash2 size={16}/></button><div className="flex justify-between"><span className="text-xs font-bold bg-blue-100 px-2 py-1">{t.type}</span><span className="text-xs uppercase text-gray-400">{t.category}</span></div><h3 className="font-bold text-lg">{t.name}</h3></div>)}</div></div>
-            )}
-
-            {activeTab === 'clients' && (
-                <div className="space-y-8 animate-in fade-in">
-                    <div className="flex justify-between items-center border-b-4 border-grit-secondary pb-4">
-                        <h2 className="text-3xl font-bold">Clients</h2>
-                        <Button size="sm" onClick={() => setIsAddingClient(true)} icon={<Plus size={18}/>}>Add Client</Button>
-                    </div>
-                    
-                    {isAddingClient && (
-                        <div className="bg-gray-100 p-6 border-2 border-grit-dark mb-6">
-                            <h3 className="font-bold text-xl mb-4">{editingClientId ? 'Edit Client' : 'Add New Client'}</h3>
-                            <div className="grid gap-4">
-                                <Input 
-                                    label="Client Name" 
-                                    value={newClientName} 
-                                    onChange={e => setNewClientName(e.target.value)} 
-                                    placeholder="Company Name or Individual"
-                                />
-                                <Input 
-                                    label="Registration Number" 
-                                    value={newClientReg} 
-                                    onChange={e => setNewClientReg(e.target.value)} 
-                                    placeholder="Optional"
-                                />
-                                <Input 
-                                    label="Email" 
-                                    type="email"
-                                    value={newClientEmail} 
-                                    onChange={e => setNewClientEmail(e.target.value)} 
-                                    placeholder="client@example.com"
-                                />
-                                <Input 
-                                    label="Phone" 
-                                    value={newClientPhone} 
-                                    onChange={e => setNewClientPhone(e.target.value)} 
-                                    placeholder="+27 12 345 6789"
-                                />
-                                <TextArea 
-                                    label="Address" 
-                                    value={newClientAddress} 
-                                    onChange={e => setNewClientAddress(e.target.value)} 
-                                    placeholder="Street address, city, postal code"
-                                />
-                                <div className="flex justify-end gap-2">
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => {
-                                            setIsAddingClient(false);
-                                            setEditingClientId(null);
-                                            setNewClientName('');
-                                            setNewClientReg('');
-                                            setNewClientEmail('');
-                                            setNewClientPhone('');
-                                            setNewClientAddress('');
-                                        }}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button 
-                                        onClick={async () => {
-                                            if (!newClientName.trim()) {
-                                                alert('Client name is required');
-                                                return;
-                                            }
-                                            
-                                            const clientData: Client = {
-                                                id: editingClientId || `client_${Date.now()}`,
-                                                businessName: newClientName,
-                                                registrationNumber: newClientReg,
-                                                email: newClientEmail,
-                                                phone: newClientPhone,
-                                                address: newClientAddress,
-                                            };
-                                            
-                                            try {
-                                                await saveClient(clientData);
-                                                
-                                                // Update local state
-                                                if (editingClientId) {
-                                                    setClients(prev => prev.map(c => c.id === editingClientId ? clientData : c));
-                                                } else {
-                                                    setClients(prev => [...prev, clientData]);
-                                                }
-                                                
-                                                // Reset form
-                                                setIsAddingClient(false);
-                                                setEditingClientId(null);
-                                                setNewClientName('');
-                                                setNewClientReg('');
-                                                setNewClientEmail('');
-                                                setNewClientPhone('');
-                                                setNewClientAddress('');
-                                                
-                                                triggerHaptic('success');
-                                            } catch (error) {
-                                                console.error('Error saving client:', error);
-                                                alert('Failed to save client. Please try again.');
-                                            }
-                                        }}
-                                    >
-                                        {editingClientId ? 'Update' : 'Save'} Client
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {clients.map(client => (
-                            <div key={client.id} className="bg-white border-2 border-gray-200 p-4 relative group hover:border-grit-dark transition-all">
-                                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button 
-                                        onClick={() => {
-                                            setEditingClientId(client.id);
-                                            setNewClientName(client.businessName);
-                                            setNewClientReg(client.registrationNumber || '');
-                                            setNewClientEmail(client.email || '');
-                                            setNewClientPhone(client.phone || '');
-                                            setNewClientAddress(client.address || '');
-                                            setIsAddingClient(true);
-                                        }}
-                                        className="text-blue-500 hover:text-blue-700 p-1"
-                                    >
-                                        <Edit2 size={16}/>
-                                    </button>
-                                    <button 
-                                        onClick={async () => {
-                                            if (confirm(`Delete client "${client.businessName}"?`)) {
-                                                try {
-                                                    await deleteClient(client.id);
-                                                    setClients(prev => prev.filter(c => c.id !== client.id));
-                                                    triggerHaptic('success');
-                                                } catch (error) {
-                                                    console.error('Error deleting client:', error);
-                                                    alert('Failed to delete client.');
-                                                }
-                                            }
-                                        }}
-                                        className="text-red-400 hover:text-red-600 p-1"
-                                    >
-                                        <Trash2 size={16}/>
-                                    </button>
-                                </div>
-                                <h3 className="font-bold text-lg mb-2">{client.businessName}</h3>
-                                {client.registrationNumber && (
-                                    <p className="text-xs text-gray-500 mb-1">Reg: {client.registrationNumber}</p>
-                                )}
-                                {client.email && (
-                                    <p className="text-sm text-gray-700 mb-1">{client.email}</p>
-                                )}
-                                {client.phone && (
-                                    <p className="text-sm text-gray-700 mb-1">{client.phone}</p>
-                                )}
-                                {client.address && (
-                                    <p className="text-xs text-gray-500 mt-2">{client.address}</p>
-                                )}
-                            </div>
-                        ))}
-                        {clients.length === 0 && !isAddingClient && (
-                            <div className="col-span-2 text-center py-12 text-gray-400">
-                                <Users size={48} className="mx-auto mb-2 opacity-50"/>
-                                <p className="font-bold">No clients yet</p>
-                                <p className="text-sm">Click "Add Client" to get started</p>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
