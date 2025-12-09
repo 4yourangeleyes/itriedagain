@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { DocumentData, UserProfile, DocType, TemplateBlock, InvoiceItem, DocStatus, InvoiceTheme, ContractTheme, ContractClause } from '../types';
 import { Plus, Minus, Save, Share2, X, Grid, Trash2, Box, CheckSquare, Square, DollarSign, GripVertical, Palette, Zap, Aperture, Layout, Feather, Building, Leaf, PenTool, Wind, Download, Mail, Edit3, Eye, Check, Loader, Send } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -12,6 +12,12 @@ import { ContractThemeRenderer } from '../components/ContractThemeRenderer';
 import { OnboardingTooltip } from '../components/OnboardingTooltip';
 import { useOnboarding } from '../context/OnboardingContext';
 import { Client } from '../types';
+import { useCanvasZoom } from '../hooks/useCanvasZoom';
+import { useCanvasMenus } from '../hooks/useCanvasMenus';
+import { useCanvasSelection } from '../hooks/useCanvasSelection';
+import { useCanvasEmail } from '../hooks/useCanvasEmail';
+import { useCanvasModal } from '../hooks/useCanvasModal';
+import { useCanvasExport } from '../hooks/useCanvasExport';
 
 interface CanvasScreenProps {
   doc: DocumentData | null;
@@ -58,9 +64,15 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
   const navigate = useNavigate();
   const invoiceRef = useRef<HTMLDivElement>(null);
   const docRef = useRef<DocumentData | null>(null);
-  const [zoom, setZoom] = useState(0.5);
-  const [guideZoom, setGuideZoom] = useState(false);
-  const [viewMode, setViewMode] = useState<'Draft' | 'Final'>('Draft');
+  
+  // Custom hooks for state management
+  const zoomState = useCanvasZoom();
+  const menuState = useCanvasMenus();
+  const selectionState = useCanvasSelection();
+  const emailState = useCanvasEmail();
+  const modalState = useCanvasModal();
+  const exportState = useCanvasExport();
+  
   const { activeStep, showGuide, completeStep, skipOnboarding, canvasGuideStep, nextCanvasGuideStep } = useOnboarding();
 
   // Keep ref in sync with doc prop
@@ -68,43 +80,10 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
     docRef.current = doc;
   }, [doc]);
 
-  // Force 100% zoom during guide
+  // Force 100% zoomState.zoom during guide
   useEffect(() => {
-    if (activeStep === 'document' && showGuide) {
-      setGuideZoom(true);
-      setZoom(1);
-    } else {
-      setGuideZoom(false);
-      setZoom(0.5);
-    }
-  }, [activeStep, showGuide]);
-  
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const [showStyleMenu, setShowStyleMenu] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [showBatchModal, setShowBatchModal] = useState(false);
-  const [batchBlockName, setBatchBlockName] = useState('');
-  
-  const [showKaChing, setShowKaChing] = useState(false);
-  const [suggestDeposit, setSuggestDeposit] = useState(false);
-
-  const [potentialTemplate, setPotentialTemplate] = useState<string | null>(null);
-  const [selectedTemplateItems, setSelectedTemplateItems] = useState<Set<string>>(new Set());
-
-  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  
-  // PDF export states
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [showPDFMenu, setShowPDFMenu] = useState(false);
-  
-  // Email sending states
-  const [showSendEmailModal, setShowSendEmailModal] = useState(false);
-  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailMessage, setEmailMessage] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
+    zoomState.applyGuidedZoom(activeStep === 'document' && showGuide);
+  }, [activeStep, showGuide, zoomState]);
 
   const calculateTotals = (items: InvoiceItem[]) => {
       const subtotal = items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
@@ -122,9 +101,9 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         };
         updateDoc(blankDoc);
     } else {
-        if (doc.status !== 'Draft' && viewMode === 'Draft') setViewMode('Final');
-        if ((doc.total || 0) > 1000 && !doc.items?.some(i => i.description.toLowerCase().includes('deposit')) && !suggestDeposit) {
-            setSuggestDeposit(true);
+        if (doc.status !== 'Draft' && zoomState.viewMode === 'Draft') zoomState.setViewMode('Final');
+        if ((doc.total || 0) > 1000 && !doc.items?.some(i => i.description.toLowerCase().includes('deposit')) && !modalState.suggestDeposit) {
+            modalState.setSuggestDeposit(true);
         }
     }
   }, [doc, profile]);
@@ -144,9 +123,9 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
   if (!doc) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
   const toggleSelection = (id: string) => {
-      const newSet = new Set(selectedItems);
+      const newSet = new Set(selectionState.selectedItems);
       if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-      setSelectedItems(newSet);
+      selectionState.setSelectedItems(newSet);
       if (navigator.vibrate) navigator.vibrate(10);
   };
 
@@ -160,20 +139,20 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
 
   const handleBatchDelete = () => {
       if (!doc.items) return;
-      const newItems = doc.items.filter(i => !selectedItems.has(i.id));
+      const newItems = doc.items.filter(i => !selectionState.selectedItems.has(i.id));
       const totals = calculateTotals(newItems);
       updateDoc({ ...doc, items: newItems, ...totals });
-      setSelectedItems(new Set());
+      selectionState.setSelectedItems(new Set());
       triggerHaptic('heavy');
   };
 
   const handleBatchCreateBlock = () => {
-      if (!batchBlockName || !doc.items) return;
-      const itemsToSave = doc.items.filter(i => selectedItems.has(i.id));
+      if (!modalState.batchBlockName || !doc.items) return;
+      const itemsToSave = doc.items.filter(i => selectionState.selectedItems.has(i.id));
       setTemplates(prev => [...prev, {
-          id: Date.now().toString(), name: batchBlockName, category: 'Batch Save', type: DocType.INVOICE, items: itemsToSave
+          id: Date.now().toString(), name: modalState.batchBlockName, category: 'Batch Save', type: DocType.INVOICE, items: itemsToSave
       }]);
-      setBatchBlockName(''); setShowBatchModal(false); setSelectedItems(new Set()); triggerHaptic('success');
+      modalState.setBatchBlockName(''); modalState.setShowBatchModal(false); selectionState.setSelectedItems(new Set()); triggerHaptic('success');
   };
 
   const handleStatusChange = (newStatus: DocStatus) => {
@@ -220,7 +199,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
 
   // PDF Export Handler
   const handleDragStart = (e: React.DragEvent, index: number) => {
-      setDraggedItemIndex(index);
+      selectionState.setDraggedItemIndex(index);
       e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -231,12 +210,12 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
       e.preventDefault();
-      if (draggedItemIndex === null || !doc.items) return;
+      if (selectionState.draggedItemIndex === null || !doc.items) return;
       const newItems = [...doc.items];
-      const [draggedItem] = newItems.splice(draggedItemIndex, 1);
+      const [draggedItem] = newItems.splice(selectionState.draggedItemIndex, 1);
       newItems.splice(dropIndex, 0, draggedItem);
       updateDoc({ ...doc, items: newItems });
-      setDraggedItemIndex(null);
+      selectionState.setDraggedItemIndex(null);
   };
 
   const handleAddItem = (item?: Partial<InvoiceItem>) => {
@@ -250,7 +229,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
     const newItems = [...(doc.items || []), newItem];
     const totals = calculateTotals(newItems);
     updateDoc({ ...doc, items: newItems, ...totals });
-    setShowAddMenu(false); triggerHaptic('light');
+    menuState.setShowAddMenu(false); triggerHaptic('light');
   };
 
   const addDepositTerm = () => {
@@ -259,7 +238,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         description: 'Deposit Due Now (50%)',
         price: depositAmount,
       });
-      setSuggestDeposit(false);
+      modalState.setSuggestDeposit(false);
   };
 
   const handleAddTemplate = (template: TemplateBlock) => {
@@ -291,7 +270,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           
           updateDoc({ ...doc, clauses: newClauses });
       }
-      setShowAddMenu(false); triggerHaptic('success');
+      menuState.setShowAddMenu(false); triggerHaptic('success');
   };
 
   // Allow save directly
@@ -312,7 +291,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           const result = await onSave(docToSave);
           console.log('[CanvasScreen] onSave returned:', result);
           triggerHaptic('success');
-          setSaveSuccess(true);
+          exportState.setSaveSuccess(true);
           
           // Give state updates time to propagate before navigating
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -321,18 +300,18 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         } catch (err) {
           console.error('Failed to save document:', err);
           triggerHaptic('heavy');
-          setSaveSuccess(false);
+          exportState.setSaveSuccess(false);
         }
       }
   };
   
   const handleShare = async () => {
-         setShowSendEmailModal(true);
+         emailState.setShowSendEmailModal(true);
   };
 
   const handleExportPDF = async (download: boolean = false) => {
-    setIsExportingPDF(true);
-    setShowPDFMenu(false);
+    exportState.setIsExportingPDF(true);
+    menuState.setShowPDFMenu(false);
     try {
       // Use extractInvoiceHTML to clean up the content (convert inputs to text, remove buttons)
       const htmlContent = extractInvoiceHTML(invoiceRef.current);
@@ -345,7 +324,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         const pdfBlob = await generateInvoicePDF(htmlContent, doc, profile, { returnBlob: true });
         if (pdfBlob) {
           // PDF is ready to be sent via email
-          setShowSendEmailModal(true);
+          emailState.setShowSendEmailModal(true);
         }
       }
       triggerHaptic('success');
@@ -353,29 +332,29 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
       console.error('PDF export error:', error);
       triggerHaptic('heavy');
     } finally {
-      setIsExportingPDF(false);
+      exportState.setIsExportingPDF(false);
     }
   };
 
   const handleSendInvoiceEmail = async () => {
-    setEmailError(null);
+    emailState.setEmailError(null);
     
     if (!doc.client.email) {
-      setEmailError('Client email is required');
+      emailState.setEmailError('Client email is required');
       return;
     }
 
     if (!isValidEmail(doc.client.email)) {
-      setEmailError('Invalid email address');
+      emailState.setEmailError('Invalid email address');
       return;
     }
 
     if (!profile.email) {
-      setEmailError('Your email is not configured. Please update your profile.');
+      emailState.setEmailError('Your email is not configured. Please update your profile.');
       return;
     }
 
-    setIsSendingEmail(true);
+    emailState.setIsSendingEmail(true);
     try {
       // Use extractInvoiceHTML to clean up the content
       const htmlContent = extractInvoiceHTML(invoiceRef.current);
@@ -391,7 +370,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         profile.companyName || 'Invoice Sender',
         doc.id.slice(-6),
         pdfBase64,
-        emailMessage
+        emailState.emailMessage
       );
 
       if (result.success) {
@@ -399,26 +378,26 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         const updated = { 
           ...doc, 
           status: 'Sent' as DocStatus, 
-          contractId: selectedContractId || undefined,
+          contractId: selectionState.selectedContractId || undefined,
           shareableLink: `${window.location.origin}#/view/${doc.id}`
         };
         updateDoc(updated);
         onSave(updated);
         
         alert(`Invoice sent successfully to ${doc.client.email}!`);
-        setShowSendEmailModal(false);
-        setEmailMessage('');
-        setSelectedContractId(null);
+        emailState.setShowSendEmailModal(false);
+        emailState.setEmailMessage('');
+        selectionState.setSelectedContractId(null);
       } else {
-        setEmailError(result.error || 'Failed to send email');
+        emailState.setEmailError(result.error || 'Failed to send email');
         triggerHaptic('heavy');
       }
     } catch (error) {
       console.error('Email sending error:', error);
-      setEmailError(error instanceof Error ? error.message : 'Failed to send email');
+      emailState.setEmailError(error instanceof Error ? error.message : 'Failed to send email');
       triggerHaptic('heavy');
     } finally {
-      setIsSendingEmail(false);
+      emailState.setIsSendingEmail(false);
     }
   };
 
@@ -427,39 +406,39 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
     <div className="max-w-screen-lg mx-auto py-4 px-4">
       <div className="flex gap-4 mb-6 justify-between items-center print:hidden">
         <div className="flex gap-2 items-center flex-wrap">
-          <button disabled={guideZoom} onClick={() => setZoom(Math.max(0.25, zoom - 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed">-</button>
-          <span className="font-mono font-bold">{Math.round(zoom * 100)}%</span>
-          <button disabled={guideZoom} onClick={() => setZoom(Math.min(1, zoom + 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed">+</button>
-          <button data-guide-styles onClick={() => setShowStyleMenu(!showStyleMenu)} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Palette size={18}/>Styles</button>
+          <button disabled={zoomState.guideZoom} onClick={() => zoomState.setZoom(Math.max(0.25, zoomState.zoom - 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed">-</button>
+          <span className="font-mono font-bold">{Math.round(zoomState.zoom * 100)}%</span>
+          <button disabled={zoomState.guideZoom} onClick={() => zoomState.setZoom(Math.min(1, zoomState.zoom + 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed">+</button>
+          <button data-guide-styles onClick={() => menuState.setShowStyleMenu(!menuState.showStyleMenu)} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Palette size={18}/>Styles</button>
           <div className="flex border-2 border-grit-dark rounded-lg overflow-hidden bg-white">
             <button 
-              onClick={() => setViewMode('Draft')} 
-              className={`px-4 py-2 font-bold transition-colors flex items-center gap-2 ${viewMode === 'Draft' ? 'bg-grit-dark text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => zoomState.setViewMode('Draft')} 
+              className={`px-4 py-2 font-bold transition-colors flex items-center gap-2 ${zoomState.viewMode === 'Draft' ? 'bg-grit-dark text-white' : 'hover:bg-gray-100'}`}
             >
               <Edit3 size={16} /> Draft
             </button>
             <div className="w-px bg-grit-dark"></div>
             <button 
-              onClick={() => setViewMode('Final')} 
-              className={`px-4 py-2 font-bold transition-colors flex items-center gap-2 ${viewMode === 'Final' ? 'bg-grit-dark text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => zoomState.setViewMode('Final')} 
+              className={`px-4 py-2 font-bold transition-colors flex items-center gap-2 ${zoomState.viewMode === 'Final' ? 'bg-grit-dark text-white' : 'hover:bg-gray-100'}`}
             >
               <Eye size={16} /> Preview
             </button>
           </div>
         </div>
         <div className="flex gap-2">
-          <button data-guide-add-block onClick={() => setShowAddMenu(true)} className="px-4 py-2 border-2 border-grit-dark bg-grit-secondary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Plus size={18}/>Add Block</button>
+          <button data-guide-add-block onClick={() => menuState.setShowAddMenu(true)} className="px-4 py-2 border-2 border-grit-dark bg-grit-secondary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Plus size={18}/>Add Block</button>
           <button data-guide-save onClick={handleSave} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Save size={18}/>Save</button>
           <button onClick={handleShare} className="px-4 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold flex items-center gap-2"><Share2 size={18}/>Share</button>
           <div className="relative">
             <button 
-              onClick={() => setShowPDFMenu(!showPDFMenu)} 
-              disabled={isExportingPDF}
+              onClick={() => menuState.setShowPDFMenu(!menuState.showPDFMenu)} 
+              disabled={exportState.isExportingPDF}
               className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2 disabled:opacity-50"
             >
-              <Download size={18}/>{isExportingPDF ? 'Exporting...' : 'Export'}
+              <Download size={18}/>{exportState.isExportingPDF ? 'Exporting...' : 'Export'}
             </button>
-            {showPDFMenu && (
+            {menuState.showPDFMenu && (
               <div className="absolute right-0 top-full mt-2 bg-white border-2 border-grit-dark shadow-grit z-20 min-w-48">
                 <button 
                   onClick={() => handleExportPDF(true)}
@@ -469,8 +448,8 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                 </button>
                 <button 
                   onClick={() => {
-                    setShowSendEmailModal(true);
-                    setShowPDFMenu(false);
+                    emailState.setShowSendEmailModal(true);
+                    menuState.setShowPDFMenu(false);
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-grit-primary font-bold flex items-center gap-2"
                 >
@@ -483,20 +462,20 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
       </div>
 
       {/* Save Success Notification */}
-      {saveSuccess && (
+      {exportState.saveSuccess && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded border-2 border-grit-dark shadow-grit font-bold flex items-center gap-2 animate-bounce-grit z-50">
           <Check size={20} /> Document saved! Redirecting...
         </div>
       )}
 
-      {showStyleMenu && (
+      {menuState.showStyleMenu && (
         <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-2 print:hidden bg-gray-50 p-4 border-2 border-grit-dark">
           {doc.type === DocType.INVOICE && INVOICE_THEMES.map(theme => (
             <button 
               key={theme.id} 
               onClick={() => { 
                 updateDocField('theme', theme.id); 
-                setShowStyleMenu(false); 
+                menuState.setShowStyleMenu(false); 
                 triggerHaptic('light'); 
               }} 
               className={`p-3 border-2 flex flex-col items-center gap-2 text-center transition-all ${doc.theme === theme.id ? 'border-grit-primary bg-grit-primary' : 'border-gray-300 hover:border-grit-dark'}`}
@@ -511,7 +490,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
               key={theme.id} 
               onClick={() => { 
                 updateDocField('contractTheme', theme.id); 
-                setShowStyleMenu(false); 
+                menuState.setShowStyleMenu(false); 
                 triggerHaptic('light'); 
               }} 
               className={`p-3 border-2 flex flex-col items-center gap-2 text-center transition-all ${doc.contractTheme === theme.id ? 'border-grit-primary bg-grit-primary' : 'border-gray-300 hover:border-grit-dark'}`}
@@ -524,9 +503,9 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         </div>
       )}
 
-      <div ref={invoiceRef} data-canvas-preview className={`bg-white print:border-0 print:shadow-none print:overflow-visible relative ${viewMode === 'Final' ? 'border-0 shadow-2xl' : 'border-4 border-grit-dark'}`} style={{ minHeight: '1123px', zoom: `${zoom}`, transformOrigin: 'top center' }}>
+      <div ref={invoiceRef} data-canvas-preview className={`bg-white print:border-0 print:shadow-none print:overflow-visible relative ${zoomState.viewMode === 'Final' ? 'border-0 shadow-2xl' : 'border-4 border-grit-dark'}`} style={{ minHeight: '1123px', zoom: `${zoomState.zoom}`, transformOrigin: 'top center' }}>
         {/* Preview mode styling - simulates print appearance */}
-        {viewMode === 'Final' && (
+        {zoomState.viewMode === 'Final' && (
           <style dangerouslySetInnerHTML={{ __html: `
             .preview-mode button,
             .preview-mode input:not([readonly]),
@@ -544,12 +523,12 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           ` }} />
         )}
         
-        <div className={viewMode === 'Final' ? 'preview-mode' : ''}>
+        <div className={zoomState.viewMode === 'Final' ? 'preview-mode' : ''}>
         {doc.type === DocType.CONTRACT ? (
           <ContractThemeRenderer
             doc={doc}
             profile={profile}
-            viewMode={viewMode}
+            viewMode={zoomState.viewMode}
             updateDoc={updateDoc}
             onAddClause={(section: 'terms' | 'scope' | 'general' = 'general') => {
               const newClause: ContractClause = {
@@ -575,19 +554,19 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           <InvoiceThemeRenderer
             doc={doc}
             profile={profile}
-            viewMode={viewMode}
+            viewMode={zoomState.viewMode}
             updateDoc={updateDoc}
             onAddItem={() => handleAddItem()}
             onDeleteItem={handleDeleteItem}
             onToggleSelection={toggleSelection}
-            selectedItems={selectedItems}
+            selectedItems={selectionState.selectedItems}
             calculateTotals={calculateTotals}
           />
         )}
         </div>
         
         {/* Notes & Due Date Section - Integrated into the canvas flow */}
-        {viewMode === 'Draft' && doc.type === DocType.INVOICE && (
+        {zoomState.viewMode === 'Draft' && doc.type === DocType.INVOICE && (
           <div className="p-8 border-t-4 border-dashed border-gray-200 mt-auto print:hidden bg-gray-50 m-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -620,57 +599,57 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
       {/* Old Notes Section Removed */}
     </div>
 
-    {viewMode === 'Draft' && (
+    {zoomState.viewMode === 'Draft' && (
       <div className="max-w-screen-lg mx-auto mt-6 flex gap-2 print:hidden flex-wrap px-4">
           {doc.status !== 'Paid' && <button onClick={() => handleStatusChange('Paid')} className="px-4 py-2 border-2 border-green-600 bg-green-100 hover:bg-green-600 hover:text-white transition-colors font-bold text-green-700">Mark as Paid</button>}
-          {doc.items && doc.items.length > 0 && <button onClick={() => setShowBatchModal(true)} disabled={selectedItems.size === 0} className="px-4 py-2 border-2 border-grit-dark disabled:opacity-50 hover:bg-black hover:text-white transition-colors font-bold flex items-center gap-2"><Box size={18}/>Save as Block ({selectedItems.size})</button>}
-          {doc.items && doc.items.length > 0 && <button onClick={handleBatchDelete} disabled={selectedItems.size === 0} className="px-4 py-2 border-2 border-red-500 text-red-500 disabled:opacity-50 hover:bg-red-500 hover:text-white transition-colors font-bold flex items-center gap-2"><Trash2 size={18}/>Delete ({selectedItems.size})</button>}
+          {doc.items && doc.items.length > 0 && <button onClick={() => modalState.setShowBatchModal(true)} disabled={selectionState.selectedItems.size === 0} className="px-4 py-2 border-2 border-grit-dark disabled:opacity-50 hover:bg-black hover:text-white transition-colors font-bold flex items-center gap-2"><Box size={18}/>Save as Block ({selectionState.selectedItems.size})</button>}
+          {doc.items && doc.items.length > 0 && <button onClick={handleBatchDelete} disabled={selectionState.selectedItems.size === 0} className="px-4 py-2 border-2 border-red-500 text-red-500 disabled:opacity-50 hover:bg-red-500 hover:text-white transition-colors font-bold flex items-center gap-2"><Trash2 size={18}/>Delete ({selectionState.selectedItems.size})</button>}
       </div>
     )}
 
-      {showBatchModal && (
+      {modalState.showBatchModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
           <div className="bg-white p-8 border-4 border-grit-dark max-w-md w-full">
             <h3 className="text-xl font-bold mb-4">Save Selected Items as Block</h3>
-            <input value={batchBlockName} onChange={e => setBatchBlockName(e.target.value)} placeholder="Block name (e.g., 'Standard Repairs')" className="w-full border-2 border-grit-dark p-2 mb-4 focus:outline-none focus:bg-yellow-50" />
+            <input value={modalState.batchBlockName} onChange={e => modalState.setBatchBlockName(e.target.value)} placeholder="Block name (e.g., 'Standard Repairs')" className="w-full border-2 border-grit-dark p-2 mb-4 focus:outline-none focus:bg-yellow-50" />
             <div className="flex gap-2">
-              <button onClick={handleBatchCreateBlock} disabled={!batchBlockName} className="flex-1 px-4 py-2 border-2 border-grit-dark bg-grit-primary disabled:opacity-50 hover:bg-grit-dark hover:text-white transition-colors font-bold">Create Block</button>
-              <button onClick={() => setShowBatchModal(false)} className="flex-1 px-4 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold">Cancel</button>
+              <button onClick={handleBatchCreateBlock} disabled={!modalState.batchBlockName} className="flex-1 px-4 py-2 border-2 border-grit-dark bg-grit-primary disabled:opacity-50 hover:bg-grit-dark hover:text-white transition-colors font-bold">Create Block</button>
+              <button onClick={() => modalState.setShowBatchModal(false)} className="flex-1 px-4 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold">Cancel</button>
             </div>
           </div>
         </div>
       )}
 
       {showKaChing && <div className="fixed inset-0 flex items-center justify-center pointer-events-none"><DollarSign size={96} className="text-grit-primary animate-bounce font-black" /></div>}
-      {suggestDeposit && <div className="fixed bottom-4 right-4 bg-grit-primary border-4 border-grit-dark p-4 max-w-xs print:hidden"><p className="font-bold mb-2">High invoice amount detected</p><button onClick={addDepositTerm} className="w-full px-3 py-2 border-2 border-grit-dark bg-grit-dark text-white hover:bg-white hover:text-grit-dark transition-colors font-bold">Add 50% Deposit Term</button></div>}
+      {modalState.suggestDeposit && <div className="fixed bottom-4 right-4 bg-grit-primary border-4 border-grit-dark p-4 max-w-xs print:hidden"><p className="font-bold mb-2">High invoice amount detected</p><button onClick={addDepositTerm} className="w-full px-3 py-2 border-2 border-grit-dark bg-grit-dark text-white hover:bg-white hover:text-grit-dark transition-colors font-bold">Add 50% Deposit Term</button></div>}
 
-      {showAddMenu && (
+      {menuState.showAddMenu && (
         <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center print:hidden">
           <div className="bg-white p-6 border-4 border-grit-dark max-w-2xl w-full max-h-[80vh] overflow-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">
-                {potentialTemplate 
+                {selectionState.potentialTemplate 
                   ? `Select ${doc.type === DocType.CONTRACT ? 'Clauses' : 'Items'} to Add`
                   : `Add ${doc.type === DocType.CONTRACT ? 'Clauses' : 'Line Items'} or Template`
                 }
               </h3>
-              <button onClick={() => { setShowAddMenu(false); setPotentialTemplate(null); setSelectedTemplateItems(new Set()); }} className="text-2xl font-bold hover:text-red-500">×</button>
+              <button onClick={() => { menuState.setShowAddMenu(false); selectionState.setPotentialTemplate(null); selectionState.setSelectedTemplateItems(new Set()); }} className="text-2xl font-bold hover:text-red-500">×</button>
             </div>
             
-            {potentialTemplate ? (
+            {selectionState.potentialTemplate ? (
               <div>
-                {templates.find(t => t.id === potentialTemplate) && (
+                {templates.find(t => t.id === selectionState.potentialTemplate) && (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <p className="font-bold text-gray-700">{templates.find(t => t.id === potentialTemplate)?.name}</p>
+                      <p className="font-bold text-gray-700">{templates.find(t => t.id === selectionState.potentialTemplate)?.name}</p>
                       <div className="flex gap-2">
                         <button
                           onClick={() => {
-                            const template = templates.find(t => t.id === potentialTemplate);
+                            const template = templates.find(t => t.id === selectionState.potentialTemplate);
                             if (doc.type === DocType.CONTRACT && template?.clauses) {
-                              setSelectedTemplateItems(new Set(template.clauses.map(c => c.id)));
+                              selectionState.setSelectedTemplateItems(new Set(template.clauses.map(c => c.id)));
                             } else if (template?.items) {
-                              setSelectedTemplateItems(new Set(template.items.map(i => i.id)));
+                              selectionState.setSelectedTemplateItems(new Set(template.items.map(i => i.id)));
                             }
                           }}
                           className="text-xs px-3 py-1 border border-grit-dark hover:bg-grit-primary transition-colors"
@@ -678,7 +657,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                           Select All
                         </button>
                         <button
-                          onClick={() => setSelectedTemplateItems(new Set())}
+                          onClick={() => selectionState.setSelectedTemplateItems(new Set())}
                           className="text-xs px-3 py-1 border border-grit-dark hover:bg-gray-200 transition-colors"
                         >
                           Deselect All
@@ -689,16 +668,16 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                     {/* FOR CONTRACTS: Show Clauses */}
                     {doc.type === DocType.CONTRACT && (
                       <div className="space-y-2 mb-6 max-h-96 overflow-y-auto border-2 border-gray-200 p-4">
-                        {templates.find(t => t.id === potentialTemplate)?.clauses?.map(clause => (
+                        {templates.find(t => t.id === selectionState.potentialTemplate)?.clauses?.map(clause => (
                           <label key={clause.id} className="flex items-start gap-3 p-4 border-2 border-gray-300 hover:border-grit-primary hover:bg-gray-50 cursor-pointer transition-all">
                             <input
                               type="checkbox"
-                              checked={selectedTemplateItems.has(clause.id)}
+                              checked={selectionState.selectedTemplateItems.has(clause.id)}
                               onChange={(e) => {
-                                const newSet = new Set(selectedTemplateItems);
+                                const newSet = new Set(selectionState.selectedTemplateItems);
                                 if (e.target.checked) newSet.add(clause.id);
                                 else newSet.delete(clause.id);
-                                setSelectedTemplateItems(newSet);
+                                selectionState.setSelectedTemplateItems(newSet);
                               }}
                               className="mt-1"
                             />
@@ -718,16 +697,16 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                     {/* FOR INVOICES: Show Items */}
                     {doc.type === DocType.INVOICE && (
                       <div className="space-y-2 mb-6 max-h-64 overflow-y-auto border-2 border-gray-200 p-4">
-                        {templates.find(t => t.id === potentialTemplate)?.items?.map(item => (
+                        {templates.find(t => t.id === selectionState.potentialTemplate)?.items?.map(item => (
                           <label key={item.id} className="flex items-start gap-3 p-3 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={selectedTemplateItems.has(item.id)}
+                              checked={selectionState.selectedTemplateItems.has(item.id)}
                               onChange={(e) => {
-                                const newSet = new Set(selectedTemplateItems);
+                                const newSet = new Set(selectionState.selectedTemplateItems);
                                 if (e.target.checked) newSet.add(item.id);
                                 else newSet.delete(item.id);
-                                setSelectedTemplateItems(newSet);
+                                selectionState.setSelectedTemplateItems(newSet);
                               }}
                               className="mt-1"
                             />
@@ -743,11 +722,11 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          const template = templates.find(t => t.id === potentialTemplate);
+                          const template = templates.find(t => t.id === selectionState.potentialTemplate);
                           
                           if (doc.type === DocType.CONTRACT && template?.clauses) {
                             // Add selected clauses to contract
-                            const clausesToAdd = template.clauses.filter(c => selectedTemplateItems.has(c.id));
+                            const clausesToAdd = template.clauses.filter(c => selectionState.selectedTemplateItems.has(c.id));
                             const existingClauses = doc.clauses || [];
                             const timestamp = Date.now();
                             
@@ -764,7 +743,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                             triggerHaptic('success');
                           } else if (template?.items) {
                             // Add selected items to invoice
-                            const itemsToAdd = template.items.filter(i => selectedTemplateItems.has(i.id));
+                            const itemsToAdd = template.items.filter(i => selectionState.selectedTemplateItems.has(i.id));
                             const newItems = [...(doc.items || [])];
                             const timestamp = Date.now();
                             
@@ -781,17 +760,17 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                             triggerHaptic('success');
                           }
                           
-                          setShowAddMenu(false);
-                          setPotentialTemplate(null);
-                          setSelectedTemplateItems(new Set());
+                          menuState.setShowAddMenu(false);
+                          selectionState.setPotentialTemplate(null);
+                          selectionState.setSelectedTemplateItems(new Set());
                         }}
-                        disabled={selectedTemplateItems.size === 0}
+                        disabled={selectionState.selectedTemplateItems.size === 0}
                         className="flex-1 px-4 py-2 border-2 border-grit-dark bg-grit-primary disabled:opacity-50 hover:bg-grit-dark hover:text-white transition-colors font-bold"
                       >
-                        Add {selectedTemplateItems.size} {doc.type === DocType.CONTRACT ? 'Clauses' : 'Items'}
+                        Add {selectionState.selectedTemplateItems.size} {doc.type === DocType.CONTRACT ? 'Clauses' : 'Items'}
                       </button>
                       <button
-                        onClick={() => { setPotentialTemplate(null); setSelectedTemplateItems(new Set()); }}
+                        onClick={() => { selectionState.setPotentialTemplate(null); selectionState.setSelectedTemplateItems(new Set()); }}
                         className="flex-1 px-4 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold"
                       >
                         Back
@@ -817,11 +796,11 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                         <button 
                           key={t.id} 
                           onClick={() => { 
-                            setPotentialTemplate(t.id); 
+                            selectionState.setPotentialTemplate(t.id); 
                             if (doc.type === DocType.CONTRACT && t.clauses) {
-                              setSelectedTemplateItems(new Set(t.clauses.map(c => c.id)));
+                              selectionState.setSelectedTemplateItems(new Set(t.clauses.map(c => c.id)));
                             } else {
-                              setSelectedTemplateItems(new Set(t.items?.map(i => i.id) || []));
+                              selectionState.setSelectedTemplateItems(new Set(t.items?.map(i => i.id) || []));
                             }
                           }} 
                           className="w-full text-left px-4 py-2 border border-gray-300 hover:bg-gray-100 transition-colors mb-2"
@@ -845,17 +824,17 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
       )}
 
       {/* Email Sending Modal */}
-      {showSendEmailModal && (
+      {emailState.showSendEmailModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white border-4 border-grit-dark shadow-grit max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold flex items-center gap-2"><Mail size={28} /> Send Invoice</h2>
-              <button onClick={() => setShowSendEmailModal(false)} className="text-gray-400 hover:text-grit-dark"><X size={24} /></button>
+              <button onClick={() => emailState.setShowSendEmailModal(false)} className="text-gray-400 hover:text-grit-dark"><X size={24} /></button>
             </div>
 
-            {emailError && (
+            {emailState.emailError && (
               <div className="mb-4 p-3 bg-red-100 border-2 border-red-300 rounded">
-                <p className="text-sm text-red-800 font-bold">{emailError}</p>
+                <p className="text-sm text-red-800 font-bold">{emailState.emailError}</p>
               </div>
             )}
 
@@ -873,7 +852,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                   value={doc.client.email} 
                   onChange={e => {
                     updateDoc({ ...doc, client: { ...doc.client, email: e.target.value } });
-                    setEmailError(null);
+                    emailState.setEmailError(null);
                   }}
                   placeholder="client@example.com"
                   type="email"
@@ -890,8 +869,8 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
               <div>
                 <label className="block text-sm font-bold mb-2">Custom Message (Optional)</label>
                 <TextArea 
-                  value={emailMessage}
-                  onChange={e => setEmailMessage(e.target.value)}
+                  value={emailState.emailMessage}
+                  onChange={e => emailState.setEmailMessage(e.target.value)}
                   placeholder="Add a personal message to your client..."
                   rows={3}
                   className="w-full px-3 py-2 border-2 border-gray-300 focus:border-grit-primary focus:outline-none resize-none"
@@ -901,8 +880,8 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
               <div>
                 <label className="block text-sm font-bold mb-2">Attach Contract (Optional)</label>
                 <select 
-                  value={selectedContractId || ''} 
-                  onChange={e => setSelectedContractId(e.target.value || null)} 
+                  value={selectionState.selectedContractId || ''} 
+                  onChange={e => selectionState.setSelectedContractId(e.target.value || null)} 
                   className="w-full px-4 py-2 border-2 border-gray-300"
                 >
                   <option value="">No Contract</option>
@@ -912,18 +891,18 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                 </select>
               </div>
 
-              {selectedContractId && (
+              {selectionState.selectedContractId && (
                 <div className="bg-blue-50 border-2 border-blue-200 p-3 rounded">
-                  <p className="text-sm text-blue-900 flex items-center gap-2"><Check size={16} className="text-green-600" /> <strong>Contract selected:</strong> {templates.find(t => t.id === selectedContractId)?.name}</p>
+                  <p className="text-sm text-blue-900 flex items-center gap-2"><Check size={16} className="text-green-600" /> <strong>Contract selected:</strong> {templates.find(t => t.id === selectionState.selectedContractId)?.name}</p>
                 </div>
               )}
 
               <div className="flex gap-2">
                 <button 
                   onClick={() => {
-                    setShowSendEmailModal(false);
-                    setEmailMessage('');
-                    setEmailError(null);
+                    emailState.setShowSendEmailModal(false);
+                    emailState.setEmailMessage('');
+                    emailState.setEmailError(null);
                   }} 
                   className="flex-1 px-4 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold"
                 >
@@ -931,10 +910,10 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
                 </button>
                 <button
                   onClick={handleSendInvoiceEmail}
-                  disabled={!doc.client.email || isSendingEmail}
+                  disabled={!doc.client.email || emailState.isSendingEmail}
                   className="flex-1 px-4 py-2 border-2 border-grit-dark bg-grit-primary disabled:opacity-50 hover:bg-grit-dark hover:text-white transition-colors font-bold"
                 >
-                  {isSendingEmail ? (
+                  {emailState.isSendingEmail ? (
                     <><Loader className="animate-spin" size={16} /> Sending...</>
                   ) : (
                     <><Send size={16} /> Send Invoice</>

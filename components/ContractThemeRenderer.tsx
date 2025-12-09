@@ -50,7 +50,7 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
     }
   }, []);
 
-  const updateClause = (id: string, field: keyof ContractClause, value: any) => {
+  const updateClause = (id: string, field: keyof ContractClause, value: string | ContractClause[keyof ContractClause]) => {
     if (!doc.clauses) return;
     const newClauses = doc.clauses.map(clause => 
       clause.id === id ? { ...clause, [field]: value } : clause
@@ -58,7 +58,7 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
     updateDoc({ ...doc, clauses: newClauses });
   };
 
-  const updateDocField = (field: keyof DocumentData, value: any) => {
+  const updateDocField = (field: keyof DocumentData, value: string | number | DocumentData[keyof DocumentData]) => {
     updateDoc({ ...doc, [field]: value });
   };
 
@@ -66,7 +66,7 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
     updateDoc({ ...doc, client: { ...doc.client, [field]: value } });
   };
 
-  const updateTerms = (field: string, value: any) => {
+  const updateTerms = (field: string, value: string) => {
     updateDoc({ 
       ...doc, 
       contractTerms: { 
@@ -123,7 +123,7 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
     setShowVisualMenu(false);
   };
 
-  const updateVisualComponent = (id: string, data: any) => {
+  const updateVisualComponent = (id: string, data: Record<string, unknown>) => {
     const updated = (doc.visualComponents || []).map(vc =>
       vc.id === id ? { ...vc, data } : vc
     );

@@ -21,7 +21,7 @@ export interface VisualComponentData {
   id: string;
   type: VisualComponentType;
   title: string;
-  data: any;
+  data: PieChartSection[] | CostItem[] | BarChartItem[] | Record<string, unknown>;
 }
 
 interface PieChartSection {
@@ -66,7 +66,7 @@ export const PieChart: React.FC<PieChartProps> = ({ data, title, editable, onUpd
     onUpdate?.(updated);
   };
 
-  const updateSection = (index: number, field: keyof PieChartSection, value: any) => {
+  const updateSection = (index: number, field: keyof PieChartSection, value: string | number) => {
     const updated = sections.map((s, i) => i === index ? { ...s, [field]: value } : s);
     setSections(updated);
     onUpdate?.(updated);
@@ -417,7 +417,7 @@ export const CostBreakdown: React.FC<CostBreakdownProps> = ({ title, items, curr
     onUpdate?.(updated);
   };
 
-  const updateCost = (index: number, field: keyof CostItem, value: any) => {
+  const updateCost = (index: number, field: keyof CostItem, value: string | number) => {
     const updated = costs.map((c, i) => {
       if (i !== index) return c;
       const newCost = { ...c, [field]: value };
@@ -550,7 +550,7 @@ export const BarChart: React.FC<BarChartProps> = ({ title, items, unit, editable
     onUpdate?.(updated);
   };
 
-  const updateBar = (index: number, field: keyof BarChartItem, value: any) => {
+  const updateBar = (index: number, field: keyof BarChartItem, value: string | number) => {
     const updated = bars.map((b, i) => i === index ? { ...b, [field]: value } : b);
     setBars(updated);
     onUpdate?.(updated);

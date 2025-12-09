@@ -27,14 +27,14 @@ export const InvoiceThemeRenderer: React.FC<InvoiceThemeRendererProps> = ({
   calculateTotals,
 }) => {
 
-  const updateLineItem = (id: string, field: keyof InvoiceItem, value: any) => {
+  const updateLineItem = (id: string, field: keyof InvoiceItem, value: string | number | InvoiceItem) => {
     if (!doc.items) return;
     const newItems = doc.items.map(item => item.id === id ? { ...item, [field]: value } : item);
     const totals = calculateTotals(newItems);
     updateDoc({ ...doc, items: newItems, ...totals });
   };
 
-  const updateDocField = (field: keyof DocumentData, value: any) => {
+  const updateDocField = (field: keyof DocumentData, value: string | number | DocumentData[keyof DocumentData]) => {
     updateDoc({ ...doc, [field]: value });
   };
 
