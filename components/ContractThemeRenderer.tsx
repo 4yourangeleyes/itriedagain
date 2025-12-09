@@ -15,7 +15,7 @@ interface ContractThemeRendererProps {
   profile: UserProfile;
   viewMode: 'Draft' | 'Final';
   updateDoc: (doc: DocumentData) => void;
-  onAddClause: () => void;
+  onAddClause: (section?: 'terms' | 'scope' | 'general') => void;
   onDeleteClause: (id: string) => void;
 }
 
@@ -135,7 +135,10 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
     updateDoc({ ...doc, visualComponents: updated });
   };
 
-  const sortedClauses = doc.clauses?.sort((a, b) => (a.order || 0) - (b.order || 0)) || [];
+  // Filter clauses for Terms and Conditions (exclude scope clauses)
+  const sortedClauses = doc.clauses
+    ?.filter(c => !c.section || c.section === 'terms' || c.section === 'general')
+    .sort((a, b) => (a.order || 0) - (b.order || 0)) || [];
 
   // Calculate total clause pages dynamically
   const calculateClausePages = (clauses: typeof sortedClauses) => {
@@ -938,7 +941,7 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
       )}
 
       {/* SCOPE OF WORK (if provided) */}
-      {(doc.scopeOfWork || viewMode === 'Draft') && (
+      {(doc.scopeOfWork || viewMode === 'Draft' || doc.clauses?.some(c => c.section === 'scope')) && (
         <>
           <h2 className={`${styles.sectionTitle} section-title`}>SCOPE OF WORK</h2>
           {viewMode === 'Draft' ? (
@@ -951,6 +954,60 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
             />
           ) : (
             <p className="mb-6 whitespace-pre-wrap">{doc.scopeOfWork}</p>
+          )}
+          
+          {/* Scope of Work Clauses */}
+          {doc.clauses?.filter(c => c.section === 'scope').map((clause, index) => (
+            <div key={clause.id} className="clause-item mb-6 relative group">
+              {viewMode === 'Draft' && (
+                <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2">
+                  <button 
+                    className="text-gray-400 hover:text-red-600"
+                    onClick={() => onDeleteClause(clause.id)}
+                    title="Delete Scope Item"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
+              
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="font-bold text-gray-500 text-sm">•</span>
+                {viewMode === 'Draft' ? (
+                  <Input
+                    value={clause.title}
+                    onChange={e => updateClause(clause.id, 'title', e.target.value)}
+                    className={`flex-1 ${styles.clauseTitle} bg-transparent border-b border-dashed border-gray-400`}
+                    placeholder="Scope item"
+                  />
+                ) : (
+                  <h3 className={styles.clauseTitle}>{clause.title}</h3>
+                )}
+              </div>
+              
+              {viewMode === 'Draft' ? (
+                <TextArea
+                  value={clause.content}
+                  onChange={e => updateClause(clause.id, 'content', e.target.value)}
+                  className="w-full p-3 border-2 border-gray-300 rounded"
+                  rows={3}
+                  placeholder="Scope details..."
+                />
+              ) : (
+                <p className={`${styles.clauseContent} whitespace-pre-wrap ml-4`}>{clause.content}</p>
+              )}
+            </div>
+          ))}
+          
+          {/* Add Scope Clause Button */}
+          {viewMode === 'Draft' && (
+            <button
+              onClick={() => onAddClause('scope')}
+              className="w-full py-2 border-2 border-dashed border-purple-400 hover:border-purple-600 hover:bg-purple-50 transition-colors font-bold text-purple-600 hover:text-purple-700 text-xs flex items-center justify-center gap-1 mb-6 print:hidden"
+              title="Add clause to Scope of Work"
+            >
+              <Plus size={16} /> Add Scope Item
+            </button>
           )}
         </>
       )}
@@ -995,21 +1052,32 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
               rows={4}
               placeholder="Clause content..."
             />
-          ) : (
-            <p className={`${styles.clauseContent} whitespace-pre-wrap`}>{clause.content}</p>
-          )}
-        </div>
-      ))}
-
-      {viewMode === 'Draft' && (
+            ) : (
+              <p className={`${styles.clauseContent} whitespace-pre-wrap`}>{clause.content}</p>
+            )}
+          </div>
+        ))}
+        
+        {/* Add Terms/Clause Buttons */}
+        {viewMode === 'Draft' && (
+          <div className="grid grid-cols-2 gap-2 mb-6 print:hidden">
+            <button
+              onClick={() => onAddClause('terms')}
+              className="py-2 border-2 border-dashed border-blue-400 hover:border-blue-600 hover:bg-blue-50 transition-colors font-bold text-blue-600 hover:text-blue-700 text-xs flex items-center justify-center gap-1"
+              title="Add clause to Terms and Conditions"
+            >
+              <Plus size={16} /> Add Term
+            </button>
+            <button
+              onClick={() => onAddClause('general')}
+              className="py-2 border-2 border-dashed border-gray-400 hover:border-gray-600 hover:bg-gray-50 transition-colors font-bold text-gray-600 hover:text-gray-700 text-xs flex items-center justify-center gap-1"
+              title="Add general clause"
+            >
+              <Plus size={16} /> Add Clause
+            </button>
+          </div>
+        )}      {viewMode === 'Draft' && (
         <>
-          <button
-            onClick={onAddClause}
-            className="w-full py-3 border-2 border-dashed border-gray-400 hover:border-blue-600 hover:bg-blue-50 transition-colors font-bold text-gray-600 hover:text-blue-600 flex items-center justify-center gap-2 print:hidden mb-2"
-          >
-            <Plus size={20} /> Add Clause
-          </button>
-          
           <div className="relative print:hidden">
             <button
               onClick={() => setShowVisualMenu(!showVisualMenu)}

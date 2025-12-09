@@ -9,6 +9,8 @@ import { generateInvoicePDF, generateInvoicePDFBase64, extractInvoiceHTML } from
 import { sendInvoiceEmail, isValidEmail } from '../services/emailService';
 import { InvoiceThemeRenderer } from '../components/InvoiceThemeRenderer';
 import { ContractThemeRenderer } from '../components/ContractThemeRenderer';
+import { OnboardingTooltip } from '../components/OnboardingTooltip';
+import { useOnboarding } from '../context/OnboardingContext';
 import { Client } from '../types';
 
 interface CanvasScreenProps {
@@ -17,7 +19,7 @@ interface CanvasScreenProps {
   updateDoc: (doc: DocumentData | null) => void;
   templates: TemplateBlock[];
   setTemplates: React.Dispatch<React.SetStateAction<TemplateBlock[]>>;
-  onSave: (doc: DocumentData) => void;
+  onSave: (doc: DocumentData) => void | Promise<void>;
   itemUsage: Record<string, number>;
   onTrackItemUsage: (desc: string) => void;
   clients: Client[];
@@ -55,11 +57,31 @@ const CONTRACT_THEMES: { id: ContractTheme; name: string; description: string; e
 const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, templates, setTemplates, onSave, itemUsage, onTrackItemUsage, clients, setClients }) => {
   const navigate = useNavigate();
   const invoiceRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(0.5); 
+  const docRef = useRef<DocumentData | null>(null);
+  const [zoom, setZoom] = useState(0.5);
+  const [guideZoom, setGuideZoom] = useState(false);
   const [viewMode, setViewMode] = useState<'Draft' | 'Final'>('Draft');
+  const { activeStep, showGuide, completeStep, skipOnboarding, canvasGuideStep, nextCanvasGuideStep } = useOnboarding();
+
+  // Keep ref in sync with doc prop
+  useEffect(() => {
+    docRef.current = doc;
+  }, [doc]);
+
+  // Force 100% zoom during guide
+  useEffect(() => {
+    if (activeStep === 'document' && showGuide) {
+      setGuideZoom(true);
+      setZoom(1);
+    } else {
+      setGuideZoom(false);
+      setZoom(0.5);
+    }
+  }, [activeStep, showGuide]);
   
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showBatchModal, setShowBatchModal] = useState(false);
@@ -273,9 +295,35 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
   };
 
   // Allow save directly
-  const handleSave = () => { 
-      onSave(doc); 
-      triggerHaptic('success'); 
+  const handleSave = async () => { 
+      if (docRef.current) {
+        // Ensure document has required fields
+        const docToSave = {
+          ...docRef.current,
+          status: docRef.current.status || 'Draft',
+          date: docRef.current.date || new Date().toLocaleDateString(),
+        };
+        
+        console.log('[CanvasScreen] handleSave called with doc:', docToSave);
+        
+        try {
+          // Await the save to complete
+          console.log('[CanvasScreen] Calling onSave...');
+          const result = await onSave(docToSave);
+          console.log('[CanvasScreen] onSave returned:', result);
+          triggerHaptic('success');
+          setSaveSuccess(true);
+          
+          // Give state updates time to propagate before navigating
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.log('[CanvasScreen] Navigating to /documents');
+          navigate('/documents');
+        } catch (err) {
+          console.error('Failed to save document:', err);
+          triggerHaptic('heavy');
+          setSaveSuccess(false);
+        }
+      }
   };
   
   const handleShare = async () => {
@@ -379,10 +427,10 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
     <div className="max-w-screen-lg mx-auto py-4 px-4">
       <div className="flex gap-4 mb-6 justify-between items-center print:hidden">
         <div className="flex gap-2 items-center flex-wrap">
-          <button onClick={() => setZoom(Math.max(0.25, zoom - 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold">-</button>
+          <button disabled={guideZoom} onClick={() => setZoom(Math.max(0.25, zoom - 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed">-</button>
           <span className="font-mono font-bold">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(Math.min(1, zoom + 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold">+</button>
-          <button onClick={() => setShowStyleMenu(!showStyleMenu)} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Palette size={18}/>Styles</button>
+          <button disabled={guideZoom} onClick={() => setZoom(Math.min(1, zoom + 0.1))} className="px-3 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed">+</button>
+          <button data-guide-styles onClick={() => setShowStyleMenu(!showStyleMenu)} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Palette size={18}/>Styles</button>
           <div className="flex border-2 border-grit-dark rounded-lg overflow-hidden bg-white">
             <button 
               onClick={() => setViewMode('Draft')} 
@@ -400,8 +448,8 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowAddMenu(true)} className="px-4 py-2 border-2 border-grit-dark bg-grit-secondary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Plus size={18}/>Add Block</button>
-          <button onClick={handleSave} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Save size={18}/>Save</button>
+          <button data-guide-add-block onClick={() => setShowAddMenu(true)} className="px-4 py-2 border-2 border-grit-dark bg-grit-secondary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Plus size={18}/>Add Block</button>
+          <button data-guide-save onClick={handleSave} className="px-4 py-2 border-2 border-grit-dark bg-grit-primary hover:bg-grit-dark hover:text-white transition-colors font-bold flex items-center gap-2"><Save size={18}/>Save</button>
           <button onClick={handleShare} className="px-4 py-2 border-2 border-grit-dark hover:bg-black hover:text-white transition-colors font-bold flex items-center gap-2"><Share2 size={18}/>Share</button>
           <div className="relative">
             <button 
@@ -433,6 +481,13 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           </div>
         </div>
       </div>
+
+      {/* Save Success Notification */}
+      {saveSuccess && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded border-2 border-grit-dark shadow-grit font-bold flex items-center gap-2 animate-bounce-grit z-50">
+          <Check size={20} /> Document saved! Redirecting...
+        </div>
+      )}
 
       {showStyleMenu && (
         <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-2 print:hidden bg-gray-50 p-4 border-2 border-grit-dark">
@@ -469,7 +524,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         </div>
       )}
 
-      <div ref={invoiceRef} className={`bg-white print:border-0 print:shadow-none print:overflow-visible relative ${viewMode === 'Final' ? 'border-0 shadow-2xl' : 'border-4 border-grit-dark'}`} style={{ minHeight: '1123px', zoom: `${zoom}`, transformOrigin: 'top center' }}>
+      <div ref={invoiceRef} data-canvas-preview className={`bg-white print:border-0 print:shadow-none print:overflow-visible relative ${viewMode === 'Final' ? 'border-0 shadow-2xl' : 'border-4 border-grit-dark'}`} style={{ minHeight: '1123px', zoom: `${zoom}`, transformOrigin: 'top center' }}>
         {/* Preview mode styling - simulates print appearance */}
         {viewMode === 'Final' && (
           <style dangerouslySetInnerHTML={{ __html: `
@@ -496,13 +551,14 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
             profile={profile}
             viewMode={viewMode}
             updateDoc={updateDoc}
-            onAddClause={() => {
+            onAddClause={(section: 'terms' | 'scope' | 'general' = 'general') => {
               const newClause: ContractClause = {
-                id: Date.now().toString(),
-                title: 'New Clause',
-                content: 'Enter clause content here...',
-                order: (doc.clauses?.length || 0) + 1,
-                required: false
+                id: crypto.randomUUID(),
+                title: section === 'scope' ? 'New Scope Item' : section === 'terms' ? 'New Term' : 'New Clause',
+                content: 'Enter content here...',
+                order: (doc.clauses?.filter(c => c.section === section).length || 0) + 1,
+                required: false,
+                section: section
               };
               updateDoc({ ...doc, clauses: [...(doc.clauses || []), newClause] });
               triggerHaptic('light');
@@ -888,6 +944,87 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Canvas Onboarding - Step 1: Add Block */}
+      {activeStep === 'document' && showGuide && canvasGuideStep === 'add-block' && doc.type === DocType.INVOICE && (
+        <OnboardingTooltip
+          title="Add Line Items"
+          description="Click 'Add Block' to add products or services to your invoice. You can add multiple items, set quantities, and prices."
+          step="5"
+          totalSteps="7"
+          onNext={nextCanvasGuideStep}
+          onSkip={skipOnboarding}
+          position="bottom"
+          highlightTarget="[data-guide-add-block]"
+        />
+      )}
+
+      {activeStep === 'document' && showGuide && canvasGuideStep === 'add-block' && doc.type === DocType.CONTRACT && (
+        <OnboardingTooltip
+          title="Add Clauses"
+          description="Click 'Add Block' to insert contract clauses. Build your agreement step by step with customizable legal terms."
+          step="5"
+          totalSteps="7"
+          onNext={nextCanvasGuideStep}
+          onSkip={skipOnboarding}
+          position="bottom"
+          highlightTarget="[data-guide-add-block]"
+        />
+      )}
+
+      {/* Canvas Onboarding - Step 2: Styles */}
+      {activeStep === 'document' && showGuide && canvasGuideStep === 'styles' && doc.type === DocType.INVOICE && (
+        <OnboardingTooltip
+          title="Customize Your Theme"
+          description="Click 'Styles' to choose a professional design theme for your invoice. Pick from Swiss, Geometric, Blueprint, and more."
+          step="6"
+          totalSteps="7"
+          onNext={nextCanvasGuideStep}
+          onSkip={skipOnboarding}
+          position="bottom"
+          highlightTarget="[data-guide-styles]"
+        />
+      )}
+
+      {activeStep === 'document' && showGuide && canvasGuideStep === 'styles' && doc.type === DocType.CONTRACT && (
+        <OnboardingTooltip
+          title="Customize Your Theme"
+          description="Click 'Styles' to select a legal design theme for your contract. Choose from Legal, Modern, Executive, and more."
+          step="6"
+          totalSteps="7"
+          onNext={nextCanvasGuideStep}
+          onSkip={skipOnboarding}
+          position="bottom"
+          highlightTarget="[data-guide-styles]"
+        />
+      )}
+
+      {/* Canvas Onboarding - Step 3: Save */}
+      {activeStep === 'document' && showGuide && canvasGuideStep === 'save' && doc.type === DocType.INVOICE && (
+        <OnboardingTooltip
+          title="Save Your Invoice"
+          description="Click 'Save' to save your invoice. You can share it, export as PDF, or send it directly to your client."
+          step="7"
+          totalSteps="7"
+          onNext={nextCanvasGuideStep}
+          onSkip={skipOnboarding}
+          position="bottom"
+          highlightTarget="[data-guide-save]"
+        />
+      )}
+
+      {activeStep === 'document' && showGuide && canvasGuideStep === 'save' && doc.type === DocType.CONTRACT && (
+        <OnboardingTooltip
+          title="Save Your Contract"
+          description="Click 'Save' to save your contract. You can share it, export as PDF, or send it to your client for review."
+          step="7"
+          totalSteps="7"
+          onNext={nextCanvasGuideStep}
+          onSkip={skipOnboarding}
+          position="bottom"
+          highlightTarget="[data-guide-save]"
+        />
       )}
     </React.Fragment>
   );

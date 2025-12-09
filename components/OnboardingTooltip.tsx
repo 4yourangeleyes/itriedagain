@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ArrowRight, Sparkles } from 'lucide-react';
 
 interface OnboardingTooltipProps {
@@ -10,6 +10,7 @@ interface OnboardingTooltipProps {
   onNext?: () => void;
   onSkip?: () => void;
   targetSelector?: string; // CSS selector for element to highlight
+  highlightTarget?: string; // CSS selector for element to highlight and position relative to
 }
 
 export const OnboardingTooltip: React.FC<OnboardingTooltipProps> = ({
@@ -21,7 +22,47 @@ export const OnboardingTooltip: React.FC<OnboardingTooltipProps> = ({
   onNext,
   onSkip,
   targetSelector,
+  highlightTarget,
 }) => {
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    const selector = highlightTarget || targetSelector;
+    if (selector) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const bounds = element.getBoundingClientRect();
+        setTargetRect(bounds);
+        
+        // Calculate tooltip position relative to target
+        const padding = 24;
+        let top = 0;
+        let left = 0;
+
+        if (position === 'bottom') {
+          top = bounds.bottom + padding;
+          left = bounds.left + bounds.width / 2 - 160; // Center tooltip (320px width)
+        } else if (position === 'top') {
+          top = bounds.top - padding - 200; // Approximate tooltip height
+          left = bounds.left + bounds.width / 2 - 160;
+        } else if (position === 'right') {
+          top = bounds.top + bounds.height / 2 - 100;
+          left = bounds.right + padding;
+        } else if (position === 'left') {
+          top = bounds.top + bounds.height / 2 - 100;
+          left = bounds.left - padding - 320;
+        }
+
+        // Keep within viewport
+        left = Math.max(12, Math.min(left, window.innerWidth - 332));
+        top = Math.max(12, Math.min(top, window.innerHeight - 300));
+
+        setTooltipPos({ top, left });
+      }
+    }
+  }, [highlightTarget, targetSelector, position]);
+
   const positionClasses = {
     top: 'bottom-full mb-4',
     bottom: 'top-full mt-4',
@@ -31,18 +72,78 @@ export const OnboardingTooltip: React.FC<OnboardingTooltipProps> = ({
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40 pointer-events-none" />
+      {/* Backdrop with highlight cutout */}
+      {targetRect && (
+        <div className="fixed inset-0 z-40 pointer-events-none">
+          <svg width="100%" height="100%" className="absolute inset-0">
+            <defs>
+              <mask id="tooltip-mask">
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                <rect
+                  x={targetRect.x - 16}
+                  y={targetRect.y - 16}
+                  width={targetRect.width + 32}
+                  height={targetRect.height + 32}
+                  rx="8"
+                  fill="black"
+                />
+              </mask>
+            </defs>
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill="rgba(0, 0, 0, 0.6)"
+              mask="url(#tooltip-mask)"
+            />
+          </svg>
+        </div>
+      )}
+      
+      {/* Highlighted component with glow and bounce */}
+      {targetRect && (
+        <>
+          <div
+            className="fixed z-45 pointer-events-none animate-bounce-grit"
+            style={{
+              left: `${targetRect.x - 16}px`,
+              top: `${targetRect.y - 16}px`,
+              width: `${targetRect.width + 32}px`,
+              height: `${targetRect.height + 32}px`,
+              border: '4px solid rgb(236, 72, 153)',
+              borderRadius: '8px',
+              boxShadow: '0 0 20px 4px rgba(236, 72, 153, 0.6), 0 0 40px 8px rgba(236, 72, 153, 0.3)',
+            }}
+          />
+          {/* Extra highlight glow */}
+          <div
+            className="fixed z-44 pointer-events-none"
+            style={{
+              left: `${targetRect.x - 20}px`,
+              top: `${targetRect.y - 20}px`,
+              width: `${targetRect.width + 40}px`,
+              height: `${targetRect.height + 40}px`,
+              border: '2px solid rgb(236, 72, 153)',
+              borderRadius: '8px',
+              opacity: 0.4,
+              boxShadow: '0 0 30px 6px rgba(236, 72, 153, 0.4)',
+            }}
+          />
+        </>
+      )}
       
       {/* Tooltip */}
       <div
-        className={`absolute ${positionClasses[position]} z-50 bg-white border-4 border-grit-dark shadow-grit max-w-sm`}
-        style={{ width: '320px' }}
+        className={`fixed z-50 bg-white border-4 border-grit-dark shadow-2xl max-w-sm transform transition-all`}
+        style={{ width: '320px', top: `${tooltipPos.top}px`, left: `${tooltipPos.left}px` }}
       >
         {/* Header */}
         <div className="bg-grit-primary p-4 flex items-center justify-between border-b-4 border-grit-dark">
           <div className="flex items-center gap-2">
-            <Sparkles className="text-grit-dark" size={20} />
+            <div className="animate-spin">
+              <Sparkles className="text-grit-dark" size={20} />
+            </div>
             <span className="font-bold text-grit-dark text-sm">
               STEP {step} OF {totalSteps}
             </span>
@@ -71,19 +172,6 @@ export const OnboardingTooltip: React.FC<OnboardingTooltipProps> = ({
             </button>
           )}
         </div>
-
-        {/* Arrow pointer */}
-        <div
-          className={`absolute w-0 h-0 border-8 ${
-            position === 'bottom'
-              ? 'top-0 -translate-y-full border-l-transparent border-r-transparent border-b-grit-dark border-t-0 left-8'
-              : position === 'top'
-              ? 'bottom-0 translate-y-full border-l-transparent border-r-transparent border-t-grit-dark border-b-0 left-8'
-              : position === 'right'
-              ? 'left-0 -translate-x-full border-t-transparent border-b-transparent border-r-grit-dark border-l-0 top-8'
-              : 'right-0 translate-x-full border-t-transparent border-b-transparent border-l-grit-dark border-r-0 top-8'
-          }`}
-        />
       </div>
     </>
   );

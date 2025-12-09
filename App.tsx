@@ -12,6 +12,7 @@ import { useClients } from './hooks/useClients';
 import { useTemplates } from './hooks/useTemplates';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DocumentCreationWizard } from './components/DocumentCreationWizard';
+import { MilestoneCelebration } from './components/MilestoneCelebration';
 import { ContractType } from './types';
 import { getClausesForContractType } from './services/clauseLibrary';
 
@@ -215,13 +216,13 @@ export default function App() {
 const AppRoutes: React.FC<any> = (props) => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading, profile, signOut } = useAuth();
-  const { completeStep, activeStep } = useOnboarding();
+  const { completeStep, activeStep, celebrationMilestone, setCelebrationMilestone, setActiveStep, setShowGuide, isMilestoneCompleted } = useOnboarding();
   
   // Document creation wizard state
   const [showWizard, setShowWizard] = useState(false);
   
   // CRITICAL: All hooks must be called unconditionally, in the same order every render
-  const { documents, setDocuments, saveDocument, deleteDocument } = useDocuments(
+  const { documents, setDocuments, saveDocument, deleteDocument, waitForDocumentSave } = useDocuments(
     loadState('grit_documents', [])
   );
   const { clients, setClients, saveClient, deleteClient } = useClients(
@@ -250,7 +251,14 @@ const AppRoutes: React.FC<any> = (props) => {
   }, [profile, documents.length]);
 
   useEffect(() => {
+    console.log('[App] Documents effect triggered. Documents array:', documents.length, documents.map(d => ({ id: d.id, title: d.title })));
     localStorage.setItem('grit_documents', JSON.stringify(documents));
+    
+    // Auto-complete document milestone when first document is created, but only if not already completed
+    if (documents.length > 0 && activeStep !== 'document' && !isMilestoneCompleted('document')) {
+      console.log('[App] Completing document milestone');
+      completeStep('document');
+    }
   }, [documents]);
 
   useEffect(() => {
@@ -304,11 +312,22 @@ const AppRoutes: React.FC<any> = (props) => {
     );
   }
   
-  const handleSaveDocument = async (doc: DocumentData) => {
+  const handleSaveDocument = async (doc: DocumentData): Promise<void> => {
     try {
+      console.log('[handleSaveDocument] Starting save for doc:', doc.id);
       await saveDocument(doc);
+      console.log('[handleSaveDocument] Save returned, waiting for state update...');
+      
+      // Wait for document to appear in localStorage
+      const found = await waitForDocumentSave(doc.id);
+      if (found) {
+        console.log('[handleSaveDocument] Document confirmed in localStorage');
+      } else {
+        console.warn('[handleSaveDocument] Document not found in localStorage after timeout');
+      }
     } catch (err) {
       console.error('Failed to save document:', err);
+      throw err;
     }
   };
 
@@ -357,9 +376,12 @@ const AppRoutes: React.FC<any> = (props) => {
     
     props.setCurrentDoc(newDoc);
     
-    // Complete the document milestone if this is part of onboarding
-    if (activeStep === 'document') {
-      completeStep('document');
+    // Only show guide if 'document' milestone hasn't been completed yet
+    const milestoneCompleted = isMilestoneCompleted('document');
+    
+    if (!milestoneCompleted && activeStep !== 'document') {
+      setActiveStep('document');
+      setShowGuide(true);
     }
     
     setShowWizard(false);
@@ -428,6 +450,39 @@ const AppRoutes: React.FC<any> = (props) => {
         onComplete={handleWizardComplete}
         existingClients={clients}
         onAddClient={saveClient}
+      />
+    )}
+    
+    {/* Milestone Celebration Modal */}
+    {celebrationMilestone && (
+      <MilestoneCelebration
+        milestone={celebrationMilestone}
+        onNext={() => {
+          // Navigate to the next step
+          switch(celebrationMilestone) {
+            case 'profile':
+              // Show template preload after profile completion
+              setCelebrationMilestone(null);
+              navigate('/templates');
+              break;
+            case 'client':
+              navigate('/templates');
+              setCelebrationMilestone(null);
+              break;
+            case 'templates':
+              setShowWizard(true);
+              setCelebrationMilestone(null);
+              break;
+            case 'document':
+              navigate('/');
+              setCelebrationMilestone(null);
+              break;
+          }
+        }}
+        onSkip={() => {
+          setCelebrationMilestone(null);
+          navigate('/');
+        }}
       />
     )}
     </>

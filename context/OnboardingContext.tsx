@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from './AuthContext';
 
 export type OnboardingStep = 'profile' | 'client' | 'templates' | 'document' | 'completed';
+export type CanvasGuideStep = 'add-block' | 'styles' | 'save' | null;
 
 interface OnboardingContextType {
   activeStep: OnboardingStep | null;
@@ -17,6 +18,12 @@ interface OnboardingContextType {
   setTemplatesPreloaded: (loaded: boolean) => void;
   showTemplatePreloadDialog: boolean;
   setShowTemplatePreloadDialog: (show: boolean) => void;
+  celebrationMilestone: OnboardingStep | null;
+  setCelebrationMilestone: (milestone: OnboardingStep | null) => void;
+  canvasGuideStep: CanvasGuideStep;
+  setCanvasGuideStep: (step: CanvasGuideStep) => void;
+  nextCanvasGuideStep: () => void;
+  isMilestoneCompleted: (milestone: OnboardingStep) => boolean;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -29,6 +36,8 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
   const [userCreatedTemplatesCount, setUserCreatedTemplatesCount] = useState(0);
   const [templatesPreloaded, setTemplatesPreloaded] = useState(false);
   const [showTemplatePreloadDialog, setShowTemplatePreloadDialog] = useState(false);
+  const [celebrationMilestone, setCelebrationMilestone] = useState<OnboardingStep | null>(null);
+  const [canvasGuideStep, setCanvasGuideStep] = useState<CanvasGuideStep>(null);
 
   // Load onboarding state from localStorage
   useEffect(() => {
@@ -51,10 +60,23 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [user]);
 
+  // Reset canvas guide step when document step starts
+  useEffect(() => {
+    if (activeStep === 'document' && showGuide) {
+      setCanvasGuideStep('add-block');
+    }
+  }, [activeStep, showGuide]);
+
   const completeStep = (step: OnboardingStep) => {
-    // Mark step as complete and move to next
+    // Mark step as complete and show celebration
+    if (user) {
+      const completedKey = `milestone_completed_${user.id}_${step}`;
+      localStorage.setItem(completedKey, 'true');
+    }
+    setCelebrationMilestone(step);
     setActiveStep(null);
     setShowGuide(false);
+    setCanvasGuideStep(null);
   };
 
   const skipOnboarding = () => {
@@ -63,6 +85,7 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
       setSkipped(true);
       setActiveStep(null);
       setShowGuide(false);
+      setCanvasGuideStep(null);
     }
   };
 
@@ -79,6 +102,24 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
       setTemplatesPreloaded(loaded);
       localStorage.setItem(`templates_preloaded_${user.id}`, loaded.toString());
     }
+  };
+
+  const nextCanvasGuideStep = () => {
+    const steps: CanvasGuideStep[] = ['add-block', 'styles', 'save', null];
+    const currentIndex = steps.indexOf(canvasGuideStep);
+    if (currentIndex < steps.length - 1) {
+      setCanvasGuideStep(steps[currentIndex + 1]);
+    } else {
+      // All steps complete
+      completeStep('document');
+    }
+  };
+
+  // Check if a milestone was already completed
+  const isMilestoneCompleted = (milestone: OnboardingStep): boolean => {
+    if (!user) return false;
+    const completedKey = `milestone_completed_${user.id}_${milestone}`;
+    return localStorage.getItem(completedKey) === 'true';
   };
 
   const isOnboardingActive = !skipped && activeStep !== null;
@@ -99,6 +140,12 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
         setTemplatesPreloaded: handleSetTemplatesPreloaded,
         showTemplatePreloadDialog,
         setShowTemplatePreloadDialog,
+        celebrationMilestone,
+        setCelebrationMilestone,
+        canvasGuideStep,
+        setCanvasGuideStep,
+        nextCanvasGuideStep,
+        isMilestoneCompleted,
       }}
     >
       {children}

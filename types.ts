@@ -48,6 +48,7 @@ export interface ContractClause {
   order?: number;
   required?: boolean;
   category?: string;
+  section?: 'terms' | 'scope' | 'general'; // Which section this clause belongs to
 }
 
 export interface ContractMilestone {

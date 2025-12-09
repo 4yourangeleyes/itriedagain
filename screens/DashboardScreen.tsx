@@ -17,7 +17,7 @@ interface DashboardScreenProps {
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, profile, onCloneLast, onShowWizard }) => {
   const navigate = useNavigate();
   const { templates } = useTemplates();
-  const { setActiveStep, setShowGuide, skipOnboarding, userCreatedTemplatesCount } = useOnboarding();
+  const { setActiveStep, setShowGuide, skipOnboarding, userCreatedTemplatesCount, isMilestoneCompleted } = useOnboarding();
 
   // Money Pulse Logic
   const weeklyRevenue = documents
@@ -67,8 +67,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ documents, clients, p
       label: 'First Document Created', 
       completed: documents.length > 0,
       action: () => {
-        setActiveStep('document');
-        setShowGuide(true);
+        // Only show guide if milestone hasn't been completed yet
+        if (!isMilestoneCompleted('document')) {
+          setActiveStep('document');
+          setShowGuide(true);
+        }
         onShowWizard();
       }
     },

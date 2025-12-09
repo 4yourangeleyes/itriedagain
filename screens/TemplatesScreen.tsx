@@ -192,6 +192,42 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
                 </div>
               )}
 
+              {tempType === DocType.INVOICE && (
+                <div>
+                  <label className="block font-bold mb-2">Template Items</label>
+                  <div className="space-y-2 mb-3">
+                    {tempItems.map((item, idx) => (
+                      <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2 border border-gray-300">
+                        <span className="flex-1 text-sm font-medium truncate">{item.description}</span>
+                        <span className="text-sm text-gray-600">{item.quantity} {item.unitType}</span>
+                        <span className="text-sm font-bold">${item.price}</span>
+                        <button
+                          onClick={() => setTempItems(tempItems.filter((_, i) => i !== idx))}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newItem = {
+                        id: Date.now().toString(),
+                        description: 'New Item',
+                        quantity: 1,
+                        unitType: 'ea',
+                        price: 0
+                      };
+                      setTempItems([...tempItems, newItem]);
+                    }}
+                    className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    <Plus size={14} /> Add Item
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={handleAddTemplate}
                 disabled={!tempName}
@@ -212,7 +248,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
           </div>
         ) : (
           <div className="space-y-8">
-            {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
+            {Object.entries(groupedTemplates).map(([category, categoryTemplates]: [string, TemplateBlock[]]) => (
               <div key={category}>
                 <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-grit-dark">
                   {category}
