@@ -19,10 +19,6 @@ const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
   console.warn('[Supabase] Missing environment variables. Create .env.local with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
   console.warn('[Supabase] App will run in offline mode without authentication')
-} else {
-  console.log('[Supabase] Loaded configuration:');
-  console.log('[Supabase] URL:', SUPABASE_URL);
-  console.log('[Supabase] Key (first 50 chars):', SUPABASE_ANON_KEY.substring(0, 50) + '...');
 }
 
 // Initialize Supabase client
@@ -31,33 +27,6 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
   },
-  global: {
-    fetch: async (url, options) => {
-      console.log('[Supabase] Fetching:', url);
-      console.log('[Supabase] Fetch options:', options);
-      
-      try {
-        const response = await fetch(url, options);
-        console.log('[Supabase] Response received:', response.status, response.statusText);
-        
-        // Clone the response so we can read it
-        const clonedResponse = response.clone();
-        
-        // Try to read the response body
-        try {
-          const text = await clonedResponse.text();
-          console.log('[Supabase] Response body (first 200 chars):', text.substring(0, 200));
-        } catch (e) {
-          console.error('[Supabase] Failed to read response body:', e);
-        }
-        
-        return response;
-      } catch (error) {
-        console.error('[Supabase] Fetch error:', error);
-        throw error;
-      }
-    }
-  }
 })
 
 // Export types for use throughout app

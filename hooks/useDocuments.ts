@@ -4,6 +4,32 @@ import { DocumentData } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 /**
+ * Transform Supabase document to DocumentData format
+ */
+const transformSupabaseDoc = (doc: any): DocumentData => ({
+  id: doc.id,
+  type: doc.type,
+  status: doc.status,
+  title: doc.title,
+  client: doc.client,
+  date: doc.date,
+  dueDate: doc.due_date,
+  currency: doc.currency,
+  theme: doc.theme,
+  contractId: doc.contract_id,
+  notes: doc.notes,
+  shareableLink: doc.shareable_link,
+  items: doc.items || [],
+  subtotal: doc.subtotal,
+  taxTotal: doc.tax_total,
+  total: doc.total,
+  vat_enabled: doc.vat_enabled,
+  tax_rate: doc.tax_rate,
+  clauses: doc.clauses || [],
+  bodyText: doc.body_text,
+});
+
+/**
  * Hook for managing documents with Supabase persistence
  * Handles sync, create, update, delete, and real-time updates
  */
@@ -42,34 +68,13 @@ export const useDocuments = (initialDocs: DocumentData[] = []) => {
 
         if (data) {
           // Transform Supabase data to DocumentData format
-          const transformedDocs: DocumentData[] = data.map(doc => ({
-            id: doc.id,
-            type: doc.type,
-            status: doc.status,
-            title: doc.title,
-            client: doc.client,
-            date: doc.date,
-            dueDate: doc.due_date,
-            currency: doc.currency,
-            theme: doc.theme,
-            contractId: doc.contract_id,
-            notes: doc.notes,
-            shareableLink: doc.shareable_link,
-            items: doc.items || [],
-            subtotal: doc.subtotal,
-            taxTotal: doc.tax_total,
-            total: doc.total,
-            vat_enabled: doc.vat_enabled,
-            tax_rate: doc.tax_rate,
-            clauses: doc.clauses || [],
-            bodyText: doc.body_text,
-          }));
-
+          const transformedDocs: DocumentData[] = data.map(transformSupabaseDoc);
           setDocuments(transformedDocs);
         }
-      } catch (err: any) {
-        console.error('Failed to load documents:', err);
-        setError(err.message || 'Failed to load documents');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load documents';
+        console.error('Failed to load documents:', errorMessage);
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -89,8 +94,21 @@ export const useDocuments = (initialDocs: DocumentData[] = []) => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Document update:', payload);
-          loadDocuments();
+          // Update only the changed document instead of fetching all
+          if (payload.new) {
+            setDocuments(prev => {
+              const index = prev.findIndex(d => d.id === payload.new.id);
+              if (index >= 0) {
+                const updated = [...prev];
+                updated[index] = transformSupabaseDoc(payload.new);
+                return updated;
+              }
+              return [...prev, transformSupabaseDoc(payload.new)];
+            });
+          } else if (payload.old) {
+            // DELETE event
+            setDocuments(prev => prev.filter(d => d.id !== payload.old.id));
+          }
         }
       )
       .subscribe();

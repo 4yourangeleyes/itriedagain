@@ -126,16 +126,31 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ clients, setClients, profile, o
       if (!napkinText) return;
       setIsProcessingNapkin(true);
       try {
+          console.log('📝 Processing napkin sketch:', napkinText);
+          console.log('🎯 Client:', clientName, 'Company:', profile.companyName);
+          
           const result = await generateDocumentContent(napkinText, DocType.INVOICE, clientName, profile.companyName);
-          if (result.items) {
-              const newItems = result.items.map((i: any) => ({...i, id: Math.random().toString()}));
+          
+          console.log('✅ AI Response:', result);
+          
+          if (result && result.items && Array.isArray(result.items)) {
+              const newItems = result.items.map((i: any) => ({
+                  ...i,
+                  id: Math.random().toString(),
+                  unitType: i.unitType || 'ea'
+              }));
+              console.log('📦 Adding items:', newItems);
               setJobItems(prev => [...prev, ...newItems]);
               setNapkinText('');
               setScopeMode('manual');
               triggerHaptic('success');
+          } else {
+              console.warn('⚠️ No items returned from AI:', result);
+              alert('No items were generated. Please try a more detailed description.');
           }
       } catch (e) {
-          alert("Could not parse napkin sketch. Please try again.");
+          console.error('❌ Error processing napkin sketch:', e);
+          alert(`Could not parse napkin sketch: ${e instanceof Error ? e.message : 'Unknown error'}`);
       } finally {
           setIsProcessingNapkin(false);
       }

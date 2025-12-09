@@ -1,4 +1,5 @@
 
+
 /**
  * Gemini Service - Wrapper around Supabase Edge Function
  * 
@@ -7,9 +8,8 @@
  */
 
 import { generateDocumentViaEdgeFunction } from './supabaseClient';
-import { DocType, TemplateBlock } from '../types';
-
-export const generateDocumentContent = async (
+import { docTypeToAPI } from '../utils/docTypeConverter';
+import { DocType, TemplateBlock } from '../types';export const generateDocumentContent = async (
   prompt: string,
   docType: DocType,
   clientName: string,
@@ -34,10 +34,13 @@ export const generateDocumentContent = async (
         .join('\n\n');
     }
 
+    // Convert DocType enum to API string
+    const apiDocType = docTypeToAPI(docType);
+
     // Call the Supabase Edge Function (which securely uses GENAI_API_KEY)
     const result = await generateDocumentViaEdgeFunction(
       prompt,
-      docType === DocType.INVOICE ? 'INVOICE' : docType === DocType.CONTRACT ? 'CONTRACT' : 'HRDOC',
+      apiDocType,
       clientName,
       businessName,
       industry,
