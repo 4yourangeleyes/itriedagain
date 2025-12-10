@@ -831,21 +831,33 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
             </div>
             
             <div className="space-y-4">
-              <div>
-                <label className="block font-bold mb-1">Template Name</label>
-                <Input
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  placeholder="e.g., Standard Invoice, Service Agreement"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold mb-1">Template Name *</label>
+                  <Input
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    placeholder="e.g., Standard Invoice, Service Agreement"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">Category</label>
+                  <Input
+                    value={tempCategory}
+                    onChange={(e) => setTempCategory(e.target.value)}
+                    placeholder="e.g., My Templates, Client Name"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Category</label>
-                <Input
-                  value={tempCategory}
-                  onChange={(e) => setTempCategory(e.target.value)}
-                  placeholder="e.g., My Templates, Client Name"
+                <label className="block font-bold mb-1">Description</label>
+                <TextArea
+                  value={tempDescription}
+                  onChange={(e) => setTempDescription(e.target.value)}
+                  placeholder="Describe what this template is for..."
+                  rows={2}
                 />
               </div>
 
@@ -863,93 +875,361 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
                 <p className="text-xs text-gray-500 mt-1">Type cannot be changed after creation</p>
               </div>
 
-              {tempType === DocType.CONTRACT && (
-                <div>
-                  <label className="block font-bold mb-1">Clause Content</label>
-                  <TextArea
-                    value={tempClauseContent}
-                    onChange={(e) => setTempClauseContent(e.target.value)}
-                    placeholder="Enter the clause text..."
-                    rows={6}
-                  />
-                </div>
+              {/* INVOICE TEMPLATE FIELDS */}
+              {tempType === DocType.INVOICE && (
+                <>
+                  <div className="border-t-2 border-gray-200 pt-4">
+                    <h4 className="font-bold text-lg mb-3">Invoice Settings</h4>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block font-bold mb-1">Default Notes</label>
+                        <TextArea
+                          value={tempDefaultNotes}
+                          onChange={(e) => setTempDefaultNotes(e.target.value)}
+                          placeholder="Payment terms, thank you message, etc..."
+                          rows={3}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={tempDefaultTaxEnabled}
+                            onChange={(e) => setTempDefaultTaxEnabled(e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                          <span className="font-bold">Enable Tax by Default</span>
+                        </label>
+
+                        {tempDefaultTaxEnabled && (
+                          <div className="flex items-center gap-2">
+                            <label className="font-bold">Tax Rate:</label>
+                            <input
+                              type="number"
+                              value={tempDefaultTaxRate}
+                              onChange={(e) => setTempDefaultTaxRate(parseFloat(e.target.value) || 0)}
+                              className="w-20 px-2 py-1 border-2 border-gray-300"
+                              placeholder="15"
+                            />
+                            <span>%</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t-2 border-gray-200 pt-4">
+                    <label className="block font-bold mb-2">Template Line Items</label>
+                    <div className="space-y-2 mb-3">
+                      {tempItems.map((item, idx) => (
+                        <div key={idx} className="flex gap-2 items-center bg-white p-3 border border-blue-300 rounded">
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => {
+                              const updated = [...tempItems];
+                              updated[idx].description = e.target.value;
+                              setTempItems(updated);
+                            }}
+                            className="flex-1 text-sm font-medium px-2 py-1 border border-gray-300 rounded"
+                            placeholder="Item description"
+                          />
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const updated = [...tempItems];
+                              updated[idx].quantity = parseFloat(e.target.value) || 0;
+                              setTempItems(updated);
+                            }}
+                            className="w-16 text-sm px-2 py-1 border border-gray-300 rounded"
+                            placeholder="Qty"
+                          />
+                          <input
+                            type="text"
+                            value={item.unitType}
+                            onChange={(e) => {
+                              const updated = [...tempItems];
+                              updated[idx].unitType = e.target.value;
+                              setTempItems(updated);
+                            }}
+                            className="w-20 text-sm px-2 py-1 border border-gray-300 rounded"
+                            placeholder="Unit"
+                          />
+                          <input
+                            type="number"
+                            value={item.price}
+                            onChange={(e) => {
+                              const updated = [...tempItems];
+                              updated[idx].price = parseFloat(e.target.value) || 0;
+                              setTempItems(updated);
+                            }}
+                            className="w-24 text-sm px-2 py-1 border border-gray-300 rounded"
+                            placeholder="Price"
+                          />
+                          <button
+                            onClick={() => setTempItems(tempItems.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newItem = {
+                          id: Date.now().toString(),
+                          description: 'New Item',
+                          quantity: 1,
+                          unitType: 'ea',
+                          price: 0
+                        };
+                        setTempItems([...tempItems, newItem]);
+                      }}
+                      className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      <Plus size={14} /> Add Line Item
+                    </button>
+                  </div>
+                </>
               )}
 
-              {tempType === DocType.INVOICE && (
-                <div>
-                  <label className="block font-bold mb-2">Template Items</label>
-                  <div className="space-y-2 mb-3">
-                    {tempItems.map((item, idx) => (
-                      <div key={idx} className="flex gap-2 items-center bg-white p-3 border border-blue-300 rounded">
-                        <input
-                          type="text"
-                          value={item.description}
-                          onChange={(e) => {
-                            const updated = [...tempItems];
-                            updated[idx].description = e.target.value;
-                            setTempItems(updated);
-                          }}
-                          className="flex-1 text-sm font-medium px-2 py-1 border border-gray-300 rounded"
-                          placeholder="Description"
-                        />
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const updated = [...tempItems];
-                            updated[idx].quantity = parseFloat(e.target.value) || 0;
-                            setTempItems(updated);
-                          }}
-                          className="w-16 text-sm px-2 py-1 border border-gray-300 rounded"
-                          placeholder="Qty"
-                        />
-                        <input
-                          type="text"
-                          value={item.unitType}
-                          onChange={(e) => {
-                            const updated = [...tempItems];
-                            updated[idx].unitType = e.target.value;
-                            setTempItems(updated);
-                          }}
-                          className="w-20 text-sm px-2 py-1 border border-gray-300 rounded"
-                          placeholder="Unit"
-                        />
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => {
-                            const updated = [...tempItems];
-                            updated[idx].price = parseFloat(e.target.value) || 0;
-                            setTempItems(updated);
-                          }}
-                          className="w-24 text-sm px-2 py-1 border border-gray-300 rounded"
-                          placeholder="Price"
-                        />
-                        <button
-                          onClick={() => setTempItems(tempItems.filter((_, i) => i !== idx))}
-                          className="text-red-500 hover:text-red-700"
+              {/* CONTRACT TEMPLATE FIELDS */}
+              {tempType === DocType.CONTRACT && (
+                <>
+                  <div className="border-t-2 border-gray-200 pt-4">
+                    <h4 className="font-bold text-lg mb-3">Contract Settings</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block font-bold mb-1">Contract Type</label>
+                        <select
+                          value={tempContractType}
+                          onChange={(e) => setTempContractType(e.target.value)}
+                          className="w-full border-2 border-gray-300 p-2"
                         >
-                          <Trash2 size={16} />
-                        </button>
+                          <option value="">Select type...</option>
+                          <option value="Service Agreement">Service Agreement</option>
+                          <option value="Consulting Agreement">Consulting Agreement</option>
+                          <option value="NDA">Non-Disclosure Agreement</option>
+                          <option value="Partnership Agreement">Partnership Agreement</option>
+                          <option value="Employment Contract">Employment Contract</option>
+                          <option value="Freelance Contract">Freelance Contract</option>
+                        </select>
                       </div>
-                    ))}
+
+                      <div>
+                        <label className="block font-bold mb-1">Default Payment Schedule</label>
+                        <select
+                          value={tempDefaultPaymentSchedule}
+                          onChange={(e) => setTempDefaultPaymentSchedule(e.target.value as any)}
+                          className="w-full border-2 border-gray-300 p-2"
+                        >
+                          <option value="upfront">Upfront</option>
+                          <option value="milestone">Milestone-based</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="completion">On Completion</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block font-bold mb-1">Default Jurisdiction</label>
+                      <Input
+                        value={tempDefaultJurisdiction}
+                        onChange={(e) => setTempDefaultJurisdiction(e.target.value)}
+                        placeholder="e.g., Republic of South Africa, State of California"
+                      />
+                    </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      const newItem = {
-                        id: Date.now().toString(),
-                        description: 'New Item',
-                        quantity: 1,
-                        unitType: 'ea',
-                        price: 0
-                      };
-                      setTempItems([...tempItems, newItem]);
-                    }}
-                    className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  >
-                    <Plus size={14} /> Add Item
-                  </button>
-                </div>
+
+                  <div className="border-t-2 border-gray-200 pt-4">
+                    <label className="block font-bold mb-2">Contract Content (Clauses & Visual Components)</label>
+                    <div className="space-y-3 mb-3">
+                      {getContentItems().map((item, idx) => (
+                        item.type === 'clause' ? (
+                          // Clause Item
+                          <div
+                            key={`clause-${item.data.id || idx}`}
+                            draggable
+                            onDragStart={(e) => handleContentDragStart(e, idx)}
+                            onDragOver={handleContentDragOver}
+                            onDrop={(e) => handleContentDrop(e, idx)}
+                            className={`bg-white p-3 border border-gray-300 rounded cursor-move hover:border-purple-400 transition-colors ${
+                              draggedContentIndex === idx ? 'opacity-50' : ''
+                            }`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <GripVertical size={16} className="text-gray-400" />
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">CLAUSE</span>
+                                <input
+                                  type="text"
+                                  value={item.data.title}
+                                  onChange={(e) => {
+                                    const updated = [...tempClauses];
+                                    const clauseIdx = updated.findIndex(c => c.id === item.data.id);
+                                    if (clauseIdx !== -1) {
+                                      updated[clauseIdx].title = e.target.value;
+                                      setTempClauses(updated);
+                                    }
+                                  }}
+                                  className="flex-1 font-bold px-2 py-1 border border-gray-300"
+                                  placeholder="Clause title"
+                                />
+                              </div>
+                              <select
+                                value={item.data.section || 'general'}
+                                onChange={(e) => {
+                                  const updated = [...tempClauses];
+                                  const clauseIdx = updated.findIndex(c => c.id === item.data.id);
+                                  if (clauseIdx !== -1) {
+                                    updated[clauseIdx].section = e.target.value;
+                                    setTempClauses(updated);
+                                  }
+                                }}
+                                className="px-2 py-1 border border-gray-300 text-sm mr-2"
+                              >
+                                <option value="scope">Scope of Work</option>
+                                <option value="terms">Terms & Conditions</option>
+                                <option value="general">General</option>
+                              </select>
+                              <button
+                                onClick={() => setTempClauses(tempClauses.filter(c => c.id !== item.data.id))}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                            <TextArea
+                              value={item.data.content}
+                              onChange={(e) => {
+                                const updated = [...tempClauses];
+                                const clauseIdx = updated.findIndex(c => c.id === item.data.id);
+                                if (clauseIdx !== -1) {
+                                  updated[clauseIdx].content = e.target.value;
+                                  setTempClauses(updated);
+                                }
+                              }}
+                              placeholder="Clause content..."
+                              rows={4}
+                            />
+                          </div>
+                        ) : (
+                          // Visual Component Item
+                          <div
+                            key={`visual-${item.data.id}`}
+                            draggable
+                            onDragStart={(e) => handleContentDragStart(e, idx)}
+                            onDragOver={handleContentDragOver}
+                            onDrop={(e) => handleContentDrop(e, idx)}
+                            className={`bg-blue-50 p-3 border-2 border-blue-300 rounded cursor-move hover:border-blue-500 transition-colors ${
+                              draggedContentIndex === idx ? 'opacity-50' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <GripVertical size={16} className="text-blue-400" />
+                                <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded font-bold">VISUAL</span>
+                                <BarChart3 size={16} className="text-blue-600" />
+                                <span className="font-medium text-blue-900">{item.data.title}</span>
+                              </div>
+                              <button
+                                onClick={() => setTempVisualComponents(tempVisualComponents.filter(v => v.id !== item.data.id))}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const newClause = {
+                            id: Date.now().toString(),
+                            title: 'New Clause',
+                            content: '',
+                            section: 'general' as const,
+                            order: tempClauses.length + tempVisualComponents.length + 1
+                          };
+                          setTempClauses([...tempClauses, newClause]);
+                        }}
+                        className="text-sm font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                      >
+                        <Plus size={14} /> Add Clause
+                      </button>
+                      
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowVisualMenu(!showVisualMenu)}
+                          className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <BarChart3 size={14} /> Add Visual Component
+                        </button>
+                        {showVisualMenu && (
+                          <div className="absolute left-0 mt-1 bg-white shadow-lg rounded-lg border border-gray-200 z-10 p-2 w-56">
+                            <button
+                              onClick={() => { addVisualComponent('pie-chart'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              📊 Pie Chart
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('bar-chart'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              📈 Bar Chart
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('timeline'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              📅 Timeline
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('tech-stack'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              💻 Tech Stack
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('cost-breakdown'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              💰 Cost Breakdown
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('multi-option-table'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              ✅ Multi-Option Table
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('visual-placeholder'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              🖼️ Visual Placeholder
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('fill-in-field'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              ✏️ Fill-in Field
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="flex gap-2 justify-end">
