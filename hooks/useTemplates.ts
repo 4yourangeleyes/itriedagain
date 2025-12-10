@@ -132,8 +132,10 @@ export const useTemplates = (initialTemplates: TemplateBlock[] = []) => {
         updated_at: new Date().toISOString(),
       };
 
-      // Check if template already exists
-      if (template.id) {
+      // Check if template already exists in database (has UUID, not timestamp ID)
+      const isExistingTemplate = template.id && template.id.length > 20; // UUIDs are 36 chars, timestamps are ~13
+      
+      if (isExistingTemplate) {
         // Update existing
         const { data, error } = await supabaseClient
           .from('templates')
