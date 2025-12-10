@@ -335,7 +335,21 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
             alert(`${duplicateCount} duplicate clause${duplicateCount > 1 ? 's' : ''} skipped. Clause${duplicateCount > 1 ? 's' : ''} with the same title and content already exist${duplicateCount === 1 ? 's' : ''}.`);
           }
           
-          updateDoc({ ...doc, clauses: newClauses });
+          // Add visual components from template
+          const existingVisuals = doc.visualComponents || [];
+          const newVisuals = [...existingVisuals];
+          
+          if (template.visualComponents && template.visualComponents.length > 0) {
+            template.visualComponents.forEach((visual, index) => {
+              newVisuals.push({
+                ...visual,
+                id: `${timestamp}-visual-${index}`,
+                position: existingVisuals.length + index + 1
+              });
+            });
+          }
+          
+          updateDoc({ ...doc, clauses: newClauses, visualComponents: newVisuals });
       }
       menuState.setShowAddMenu(false); triggerHaptic('success');
   };
