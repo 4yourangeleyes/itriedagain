@@ -27,7 +27,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   const [tempClauses, setTempClauses] = useState<any[]>([]);
   const [tempVisualComponents, setTempVisualComponents] = useState<VisualComponent[]>([]);
   const [showVisualMenu, setShowVisualMenu] = useState(false);
-  const [draggedClauseIndex, setDraggedClauseIndex] = useState<number | null>(null);
+  const [draggedContentIndex, setDraggedContentIndex] = useState<number | null>(null);
   const [tempClauseContent, setTempClauseContent] = useState('');
   const [tempDefaultNotes, setTempDefaultNotes] = useState('');
   const [tempDefaultTaxEnabled, setTempDefaultTaxEnabled] = useState(false);
@@ -160,7 +160,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   };
 
   // Add visual component to template
-  const addVisualComponent = (type: VisualComponent['type']) => {
+  const addVisualComponent = (type: VisualComponent['type'], insertAfterIndex?: number) => {
     const defaultData: Record<VisualComponent['type'], any> = {
       'pie-chart': [
         { label: 'Section 1', percentage: 40, color: '#3B82F6' },
@@ -219,31 +219,70 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
       position: tempVisualComponents.length + 1,
     };
 
-    setTempVisualComponents([...tempVisualComponents, newComponent]);
+    if (insertAfterIndex !== undefined) {
+      // Insert at specific position
+      const updated = [...tempVisualComponents];
+      updated.splice(insertAfterIndex + 1, 0, newComponent);
+      setTempVisualComponents(updated.map((c, i) => ({ ...c, position: i + 1 })));
+    } else {
+      setTempVisualComponents([...tempVisualComponents, newComponent]);
+    }
   };
 
-  // Clause drag & drop handlers
-  const handleClauseDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedClauseIndex(index);
+  // Create merged content items (clauses + visuals) for display
+  const getContentItems = () => {
+    const items: Array<{ type: 'clause' | 'visual'; data: any; index: number }> = [];
+    
+    tempClauses.forEach((clause, idx) => {
+      items.push({ type: 'clause', data: clause, index: idx });
+    });
+    
+    tempVisualComponents.forEach((visual, idx) => {
+      items.push({ type: 'visual', data: visual, index: idx });
+    });
+    
+    return items.sort((a, b) => {
+      const posA = a.type === 'clause' ? (a.data.order || a.index) : (a.data.position || 999);
+      const posB = b.type === 'clause' ? (b.data.order || b.index) : (b.data.position || 999);
+      return posA - posB;
+    });
+  };
+
+  // Unified drag & drop handlers
+  const handleContentDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedContentIndex(index);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleClauseDragOver = (e: React.DragEvent) => {
+  const handleContentDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleClauseDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleContentDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    if (draggedClauseIndex === null || draggedClauseIndex === dropIndex) return;
+    if (draggedContentIndex === null || draggedContentIndex === dropIndex) return;
 
-    const updated = [...tempClauses];
-    const [removed] = updated.splice(draggedClauseIndex, 1);
+    const items = getContentItems();
+    const updated = [...items];
+    const [removed] = updated.splice(draggedContentIndex, 1);
     updated.splice(dropIndex, 0, removed);
     
-    // Update order property
-    setTempClauses(updated.map((c, i) => ({ ...c, order: i + 1 })));
-    setDraggedClauseIndex(null);
+    // Separate back into clauses and visuals with updated positions
+    const newClauses: any[] = [];
+    const newVisuals: VisualComponent[] = [];
+    
+    updated.forEach((item, idx) => {
+      if (item.type === 'clause') {
+        newClauses.push({ ...item.data, order: idx + 1 });
+      } else {
+        newVisuals.push({ ...item.data, position: idx + 1 });
+      }
+    });
+    
+    setTempClauses(newClauses);
+    setTempVisualComponents(newVisuals);
+    setDraggedContentIndex(null);
   };
   
   const handleLoadIndustryTemplates = async () => {
@@ -580,159 +619,185 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
                   </div>
 
                   <div className="border-t-2 border-gray-200 pt-4">
-                    <label className="block font-bold mb-2">Contract Clauses</label>
+                    <label className="block font-bold mb-2">Contract Content (Clauses & Visual Components)</label>
                     <div className="space-y-3 mb-3">
-                      {tempClauses.map((clause, idx) => (
-                        <div
-                          key={idx}
-                          draggable
-                          onDragStart={(e) => handleClauseDragStart(e, idx)}
-                          onDragOver={handleClauseDragOver}
-                          onDrop={(e) => handleClauseDrop(e, idx)}
-                          className={`bg-gray-50 p-3 border border-gray-300 rounded cursor-move hover:border-purple-400 transition-colors ${
-                            draggedClauseIndex === idx ? 'opacity-50' : ''
-                          }`}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2 flex-1">
-                              <GripVertical size={16} className="text-gray-400" />
-                              <input
-                                type="text"
-                                value={clause.title}
+                      {getContentItems().map((item, idx) => (
+                        item.type === 'clause' ? (
+                          // Clause Item
+                          <div
+                            key={`clause-${item.data.id || idx}`}
+                            draggable
+                            onDragStart={(e) => handleContentDragStart(e, idx)}
+                            onDragOver={handleContentDragOver}
+                            onDrop={(e) => handleContentDrop(e, idx)}
+                            className={`bg-gray-50 p-3 border border-gray-300 rounded cursor-move hover:border-purple-400 transition-colors ${
+                              draggedContentIndex === idx ? 'opacity-50' : ''
+                            }`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <GripVertical size={16} className="text-gray-400" />
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">CLAUSE</span>
+                                <input
+                                  type="text"
+                                  value={item.data.title}
+                                  onChange={(e) => {
+                                    const updated = [...tempClauses];
+                                    const clauseIdx = updated.findIndex(c => c.id === item.data.id);
+                                    if (clauseIdx !== -1) {
+                                      updated[clauseIdx].title = e.target.value;
+                                      setTempClauses(updated);
+                                    }
+                                  }}
+                                  className="flex-1 font-bold px-2 py-1 border border-gray-300"
+                                  placeholder="Clause title"
+                                />
+                              </div>
+                              <select
+                                value={item.data.section || 'general'}
                                 onChange={(e) => {
                                   const updated = [...tempClauses];
-                                  updated[idx].title = e.target.value;
-                                  setTempClauses(updated);
+                                  const clauseIdx = updated.findIndex(c => c.id === item.data.id);
+                                  if (clauseIdx !== -1) {
+                                    updated[clauseIdx].section = e.target.value;
+                                    setTempClauses(updated);
+                                  }
                                 }}
-                                className="flex-1 font-bold px-2 py-1 border border-gray-300"
-                                placeholder="Clause title"
-                              />
+                                className="px-2 py-1 border border-gray-300 text-sm mr-2"
+                              >
+                                <option value="scope">Scope of Work</option>
+                                <option value="terms">Terms & Conditions</option>
+                                <option value="general">General</option>
+                              </select>
+                              <button
+                                onClick={() => setTempClauses(tempClauses.filter(c => c.id !== item.data.id))}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </div>
-                            <select
-                              value={clause.section || 'general'}
+                            <TextArea
+                              value={item.data.content}
                               onChange={(e) => {
                                 const updated = [...tempClauses];
-                                updated[idx].section = e.target.value;
-                                setTempClauses(updated);
+                                const clauseIdx = updated.findIndex(c => c.id === item.data.id);
+                                if (clauseIdx !== -1) {
+                                  updated[clauseIdx].content = e.target.value;
+                                  setTempClauses(updated);
+                                }
                               }}
-                              className="px-2 py-1 border border-gray-300 text-sm mr-2"
-                            >
-                              <option value="scope">Scope of Work</option>
-                              <option value="terms">Terms & Conditions</option>
-                              <option value="general">General</option>
-                            </select>
+                              placeholder="Clause content..."
+                              rows={4}
+                            />
+                          </div>
+                        ) : (
+                          // Visual Component Item
+                          <div
+                            key={`visual-${item.data.id}`}
+                            draggable
+                            onDragStart={(e) => handleContentDragStart(e, idx)}
+                            onDragOver={handleContentDragOver}
+                            onDrop={(e) => handleContentDrop(e, idx)}
+                            className={`bg-blue-50 p-3 border-2 border-blue-300 rounded cursor-move hover:border-blue-500 transition-colors ${
+                              draggedContentIndex === idx ? 'opacity-50' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <GripVertical size={16} className="text-blue-400" />
+                                <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded font-bold">VISUAL</span>
+                                <BarChart3 size={16} className="text-blue-600" />
+                                <span className="font-medium text-blue-900">{item.data.title}</span>
+                              </div>
+                              <button
+                                onClick={() => setTempVisualComponents(tempVisualComponents.filter(v => v.id !== item.data.id))}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const newClause = {
+                            id: Date.now().toString(),
+                            title: 'New Clause',
+                            content: '',
+                            section: 'general' as const,
+                            order: tempClauses.length + tempVisualComponents.length + 1
+                          };
+                          setTempClauses([...tempClauses, newClause]);
+                        }}
+                        className="text-sm font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                      >
+                        <Plus size={14} /> Add Clause
+                      </button>
+                      
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowVisualMenu(!showVisualMenu)}
+                          className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <BarChart3 size={14} /> Add Visual Component
+                        </button>
+                        {showVisualMenu && (
+                          <div className="absolute left-0 mt-1 bg-white shadow-lg rounded-lg border border-gray-200 z-10 p-2 w-56">
                             <button
-                              onClick={() => setTempClauses(tempClauses.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700"
+                              onClick={() => { addVisualComponent('pie-chart'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
                             >
-                              <Trash2 size={16} />
+                              📊 Pie Chart
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('bar-chart'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              📈 Bar Chart
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('timeline'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              📅 Timeline
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('tech-stack'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              💻 Tech Stack
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('cost-breakdown'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              💰 Cost Breakdown
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('multi-option-table'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              ✅ Multi-Option Table
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('visual-placeholder'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              🖼️ Visual Placeholder
+                            </button>
+                            <button
+                              onClick={() => { addVisualComponent('fill-in-field'); setShowVisualMenu(false); }}
+                              className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                            >
+                              ✏️ Fill-in Field
                             </button>
                           </div>
-                          <TextArea
-                            value={clause.content}
-                            onChange={(e) => {
-                              const updated = [...tempClauses];
-                              updated[idx].content = e.target.value;
-                              setTempClauses(updated);
-                            }}
-                            placeholder="Clause content..."
-                            rows={4}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => {
-                        const newClause = {
-                          id: Date.now().toString(),
-                          title: 'New Clause',
-                          content: '',
-                          section: 'general' as const,
-                          order: tempClauses.length + 1
-                        };
-                        setTempClauses([...tempClauses, newClause]);
-                      }}
-                      className="text-sm font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                    >
-                      <Plus size={14} /> Add Clause
-                    </button>
-                  </div>
-
-                  {/* Visual Components Section */}
-                  <div className="border-t-2 border-gray-200 pt-4 mt-4">
-                    <label className="block font-bold mb-2">Visual Components</label>
-                    <div className="space-y-2 mb-3">
-                      {tempVisualComponents.map((component, idx) => (
-                        <div key={component.id} className="bg-blue-50 p-2 border border-blue-300 rounded flex justify-between items-center">
-                          <span className="text-sm font-medium">{component.title}</span>
-                          <button
-                            onClick={() => setTempVisualComponents(tempVisualComponents.filter((_, i) => i !== idx))}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowVisualMenu(!showVisualMenu)}
-                        className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                      >
-                        <BarChart3 size={14} /> Add Visual Component
-                      </button>
-                      {showVisualMenu && (
-                        <div className="absolute left-0 mt-1 bg-white shadow-lg rounded-lg border border-gray-200 z-10 p-2 w-56">
-                          <button
-                            onClick={() => { addVisualComponent('pie-chart'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            📊 Pie Chart
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('bar-chart'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            📈 Bar Chart
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('timeline'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            📅 Timeline
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('tech-stack'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            💻 Tech Stack
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('cost-breakdown'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            💰 Cost Breakdown
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('multi-option-table'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            ✅ Multi-Option Table
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('visual-placeholder'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            🖼️ Visual Placeholder
-                          </button>
-                          <button
-                            onClick={() => { addVisualComponent('fill-in-field'); setShowVisualMenu(false); }}
-                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
-                          >
-                            ✏️ Fill-in Field
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </>
