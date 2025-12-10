@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Client, DocumentData } from '../types';
-import { Search, FileText, Mail, MapPin, Phone, Trash2, Plus, X } from 'lucide-react';
+import { Search, FileText, Mail, MapPin, Phone, Trash2, Plus, X, Edit2 } from 'lucide-react';
 import { Input, TextArea } from '../components/Input';
 import { Button } from '../components/Button';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -16,6 +16,7 @@ interface ClientsScreenProps {
 const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveClient, deleteClient }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [newClientName, setNewClientName] = useState('');
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -55,6 +56,44 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveC
     } catch (error) {
       console.error('Failed to create client:', error);
       alert('Failed to create client. Please try again.');
+    }
+  };
+
+  const handleEditClient = (client: Client) => {
+    setEditingClient(client);
+    setNewClientName(client.businessName);
+    setNewClientEmail(client.email);
+    setNewClientPhone(client.phone || '');
+    setNewClientReg(client.registrationNumber || '');
+    setNewClientAddress(client.address || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingClient || !newClientName || !newClientEmail) {
+      alert('Business name and email are required.');
+      return;
+    }
+
+    const updatedClient: Client = {
+      ...editingClient,
+      businessName: newClientName,
+      email: newClientEmail,
+      phone: newClientPhone,
+      registrationNumber: newClientReg,
+      address: newClientAddress,
+    };
+
+    try {
+      await saveClient(updatedClient);
+      setEditingClient(null);
+      setNewClientName('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+      setNewClientReg('');
+      setNewClientAddress('');
+    } catch (error) {
+      console.error('Failed to update client:', error);
+      alert('Failed to update client. Please try again.');
     }
   };
 
@@ -151,6 +190,68 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveC
             </div>
         )}
 
+        {editingClient && (
+            <div className="bg-blue-50 border-2 border-blue-500 p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl">Edit Client</h3>
+                    <button onClick={() => {
+                        setEditingClient(null);
+                        setNewClientName('');
+                        setNewClientEmail('');
+                        setNewClientPhone('');
+                        setNewClientReg('');
+                        setNewClientAddress('');
+                    }} className="text-gray-400 hover:text-gray-600">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="grid gap-4">
+                    <Input 
+                        label="Business Name" 
+                        value={newClientName} 
+                        onChange={e => setNewClientName(e.target.value)} 
+                        placeholder="Client business name" 
+                    />
+                    <Input 
+                        label="Email" 
+                        type="email"
+                        value={newClientEmail} 
+                        onChange={e => setNewClientEmail(e.target.value)} 
+                        placeholder="client@email.com" 
+                    />
+                    <Input 
+                        label="Phone" 
+                        value={newClientPhone} 
+                        onChange={e => setNewClientPhone(e.target.value)} 
+                        placeholder="Phone number" 
+                    />
+                    <Input 
+                        label="Registration Number" 
+                        value={newClientReg} 
+                        onChange={e => setNewClientReg(e.target.value)} 
+                        placeholder="Reg or tax number" 
+                    />
+                    <TextArea 
+                        label="Address" 
+                        value={newClientAddress} 
+                        onChange={e => setNewClientAddress(e.target.value)} 
+                        placeholder="Full address" 
+                    />
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => {
+                            setEditingClient(null);
+                            setNewClientName('');
+                            setNewClientEmail('');
+                            setNewClientPhone('');
+                            setNewClientReg('');
+                            setNewClientAddress('');
+                        }}>Cancel</Button>
+                        <Button onClick={handleSaveEdit}>Update Client</Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {filteredClients.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
                 <p className="text-gray-400 font-bold text-lg">No clients found.</p>
@@ -161,12 +262,26 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ clients, documents, saveC
                 {filteredClients.map(client => {
                     const clientDocs = getClientDocs(client.id);
                     return (
-                        <div key={client.id} className="bg-white border-2 border-grit-dark shadow-grit p-6 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
+                        <div 
+                            key={client.id} 
+                            className="bg-white border-2 border-grit-dark shadow-grit p-6 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all cursor-pointer"
+                            onClick={() => handleEditClient(client)}
+                        >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="w-12 h-12 bg-grit-secondary rounded-full flex items-center justify-center text-white font-bold text-xl shadow-sm">
                                     {client.businessName.charAt(0)}
                                 </div>
                                 <div className="flex gap-2 items-start">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditClient(client);
+                                        }}
+                                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                                        title="Edit client"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
                                     <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">
                                         {clientDocs.length} Docs
                                     </span>

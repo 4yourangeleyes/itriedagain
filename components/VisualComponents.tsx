@@ -15,7 +15,10 @@ export type VisualComponentType =
   | 'site-architecture'
   | 'project-phases'
   | 'pipe-diagram'
-  | 'feature-matrix';
+  | 'feature-matrix'
+  | 'multi-option-table'
+  | 'visual-placeholder'
+  | 'fill-in-field';
 
 export interface VisualComponentData {
   id: string;
@@ -631,3 +634,271 @@ export const BarChart: React.FC<BarChartProps> = ({ title, items, unit, editable
     </div>
   );
 };
+
+// Multi-Option Table Component (for equity selections, pricing tiers, etc.)
+interface MultiOptionRow {
+  selected: boolean;
+  label: string;
+  columns: string[];
+}
+
+interface MultiOptionTableProps {
+  title: string;
+  headers: string[]; // Column headers
+  rows: MultiOptionRow[];
+  editable: boolean;
+  onUpdate?: (rows: MultiOptionRow[]) => void;
+}
+
+export const MultiOptionTable: React.FC<MultiOptionTableProps> = ({ 
+  title, 
+  headers, 
+  rows, 
+  editable, 
+  onUpdate 
+}) => {
+  const [tableRows, setTableRows] = useState<MultiOptionRow[]>(rows);
+
+  const toggleSelection = (index: number) => {
+    if (!editable) return;
+    const updated = tableRows.map((row, i) => ({
+      ...row,
+      selected: i === index, // Only one can be selected
+    }));
+    setTableRows(updated);
+    onUpdate?.(updated);
+  };
+
+  const updateRow = (rowIndex: number, colIndex: number, value: string) => {
+    const updated = [...tableRows];
+    updated[rowIndex].columns[colIndex] = value;
+    setTableRows(updated);
+    onUpdate?.(updated);
+  };
+
+  const addRow = () => {
+    const newRow: MultiOptionRow = {
+      selected: false,
+      label: 'New Option',
+      columns: headers.slice(1).map(() => ''),
+    };
+    const updated = [...tableRows, newRow];
+    setTableRows(updated);
+    onUpdate?.(updated);
+  };
+
+  return (
+    <div className="my-6 border-2 border-gray-300 rounded p-4">
+      <h3 className="text-lg font-bold mb-4">{title}</h3>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b-2 border-gray-300">
+            <th className="p-2 text-left font-bold">SELECTION</th>
+            {headers.map((header, i) => (
+              <th key={i} className="p-2 text-left font-bold">{header}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tableRows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-b border-gray-200">
+              <td className="p-2">
+                <input
+                  type="checkbox"
+                  checked={row.selected}
+                  onChange={() => toggleSelection(rowIndex)}
+                  className="w-5 h-5 cursor-pointer"
+                  disabled={!editable}
+                />
+              </td>
+              <td className="p-2">
+                {editable ? (
+                  <input
+                    type="text"
+                    value={row.label}
+                    onChange={(e) => {
+                      const updated = [...tableRows];
+                      updated[rowIndex].label = e.target.value;
+                      setTableRows(updated);
+                      onUpdate?.(updated);
+                    }}
+                    className="w-full px-2 py-1 border border-gray-300 rounded"
+                  />
+                ) : (
+                  <span className="font-medium">{row.label}</span>
+                )}
+              </td>
+              {row.columns.map((col, colIndex) => (
+                <td key={colIndex} className="p-2">
+                  {editable ? (
+                    <input
+                      type="text"
+                      value={col}
+                      onChange={(e) => updateRow(rowIndex, colIndex, e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded"
+                    />
+                  ) : (
+                    <span dangerouslySetInnerHTML={{ __html: col }} />
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {editable && (
+        <button
+          onClick={addRow}
+          className="mt-2 flex items-center gap-1 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          <Plus size={16} /> Add Option
+        </button>
+      )}
+    </div>
+  );
+};
+
+// Visual Placeholder Component (for charts, diagrams to be added later)
+interface VisualPlaceholderProps {
+  title: string;
+  description: string;
+  placeholderType: 'pie-chart' | 'flow-diagram' | 'timeline' | 'gantt-chart' | 'org-chart' | 'custom';
+  editable: boolean;
+  onUpdate?: (data: { title: string; description: string; placeholderType: string }) => void;
+}
+
+export const VisualPlaceholder: React.FC<VisualPlaceholderProps> = ({ 
+  title, 
+  description, 
+  placeholderType,
+  editable,
+  onUpdate 
+}) => {
+  const [data, setData] = useState({ title, description, placeholderType });
+
+  const updateField = (field: string, value: string) => {
+    const updated = { ...data, [field]: value };
+    setData(updated);
+    onUpdate?.(updated);
+  };
+
+  return (
+    <div className="my-6 border-4 border-dashed border-gray-400 rounded p-6 bg-gray-50 text-center">
+      {editable ? (
+        <>
+          <input
+            type="text"
+            value={data.title}
+            onChange={(e) => updateField('title', e.target.value)}
+            className="w-full text-center text-lg font-bold mb-2 px-2 py-1 border border-gray-300 rounded"
+            placeholder="Placeholder Title"
+          />
+          <textarea
+            value={data.description}
+            onChange={(e) => updateField('description', e.target.value)}
+            className="w-full text-center text-sm text-gray-600 px-2 py-1 border border-gray-300 rounded"
+            rows={2}
+            placeholder="Description of what should go here"
+          />
+        </>
+      ) : (
+        <>
+          <div className="text-lg font-bold mb-2">[{data.title}]</div>
+          <div className="text-sm text-gray-600 italic">{data.description}</div>
+        </>
+      )}
+      <div className="mt-4 text-xs text-gray-500 uppercase tracking-wide">
+        {placeholderType.replace('-', ' ')} placeholder
+      </div>
+    </div>
+  );
+};
+
+// Fill-In Field Component (for [INSERT NAME] and ____ patterns)
+interface FillInFieldProps {
+  label: string;
+  fieldType: 'text' | 'underline' | 'bracket';
+  placeholder: string;
+  value: string;
+  editable: boolean;
+  onUpdate?: (value: string) => void;
+}
+
+export const FillInField: React.FC<FillInFieldProps> = ({ 
+  label, 
+  fieldType, 
+  placeholder,
+  value,
+  editable,
+  onUpdate 
+}) => {
+  const [fieldValue, setFieldValue] = useState(value);
+
+  const handleChange = (newValue: string) => {
+    setFieldValue(newValue);
+    onUpdate?.(newValue);
+  };
+
+  if (fieldType === 'bracket') {
+    return (
+      <span className="inline-flex items-center gap-1">
+        {label && <span>{label} </span>}
+        {editable ? (
+          <input
+            type="text"
+            value={fieldValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={placeholder}
+            className="inline-block min-w-[200px] px-2 py-0.5 border-b-2 border-blue-400 bg-blue-50"
+          />
+        ) : (
+          <span className="font-medium">
+            {fieldValue || `[${placeholder}]`}
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  if (fieldType === 'underline') {
+    return (
+      <span className="inline-flex items-center gap-1">
+        {label && <span>{label}: </span>}
+        {editable ? (
+          <input
+            type="text"
+            value={fieldValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={placeholder}
+            className="inline-block min-w-[200px] px-2 py-0.5 border-b-2 border-gray-800"
+          />
+        ) : (
+          <span className="border-b-2 border-gray-800 inline-block min-w-[200px] px-1">
+            {fieldValue || '____________________________________'}
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  // Default text type
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label && <span>{label}: </span>}
+      {editable ? (
+        <input
+          type="text"
+          value={fieldValue}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder={placeholder}
+          className="inline-block min-w-[200px] px-2 py-1 border border-gray-300 rounded"
+        />
+      ) : (
+        <span className="font-medium px-2 py-1 bg-gray-100 rounded">
+          {fieldValue || placeholder}
+        </span>
+      )}
+    </span>
+  );
+};
+

@@ -62,6 +62,13 @@ export const useTemplates = (initialTemplates: TemplateBlock[] = []) => {
               items: row.items || [],
               clauses: Array.isArray(parsedClauses) ? parsedClauses : [],
               contractType: row.contract_type || undefined,
+              // NEW: Load section-based contract fields
+              sections: row.sections || [],
+              partyTypes: row.party_types || [],
+              defaultSignatories: row.default_signatories || 2,
+              defaultJurisdiction: row.default_jurisdiction || undefined,
+              governingAct: row.governing_act || undefined,
+              defaultPaymentSchedule: row.default_payment_schedule || undefined,
             };
           });
 
@@ -100,6 +107,13 @@ export const useTemplates = (initialTemplates: TemplateBlock[] = []) => {
         contract_type: template.contractType || null,
         items: template.items || [],
         clauses: JSON.stringify(template.clauses || []),
+        // NEW: Save section-based contract fields
+        sections: template.sections || [],
+        party_types: template.partyTypes || null,
+        default_signatories: template.defaultSignatories || 2,
+        default_jurisdiction: template.defaultJurisdiction || null,
+        governing_act: template.governingAct || null,
+        default_payment_schedule: template.defaultPaymentSchedule || null,
         updated_at: new Date().toISOString(),
       };
 

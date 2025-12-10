@@ -7,8 +7,8 @@
 import React, { useState } from 'react';
 import { DocumentData, UserProfile, ContractClause, ContractTheme, ContractSignature, VisualComponent } from '../types';
 import { Input, TextArea } from './Input';
-import { Trash2, Plus, GripVertical, BarChart3, PieChart as PieChartIcon, Clock, Code, DollarSign } from 'lucide-react';
-import { PieChart, Timeline, TechStack, CostBreakdown, BarChart } from './VisualComponents';
+import { Trash2, Plus, GripVertical, BarChart3, PieChart as PieChartIcon, Clock, Code, DollarSign, UserPlus, Users } from 'lucide-react';
+import { PieChart, Timeline, TechStack, CostBreakdown, BarChart, MultiOptionTable, VisualPlaceholder, FillInField } from './VisualComponents';
 
 interface ContractThemeRendererProps {
   doc: DocumentData;
@@ -17,6 +17,12 @@ interface ContractThemeRendererProps {
   updateDoc: (doc: DocumentData) => void;
   onAddClause: (section?: 'terms' | 'scope' | 'general') => void;
   onDeleteClause: (id: string) => void;
+  onClauseDragStart?: (e: React.DragEvent, index: number) => void;
+  onClauseDragOver?: (e: React.DragEvent, index: number) => void;
+  onClauseDrop?: (e: React.DragEvent, index: number) => void;
+  onVisualDragStart?: (e: React.DragEvent, index: number) => void;
+  onVisualDragOver?: (e: React.DragEvent, index: number) => void;
+  onVisualDrop?: (e: React.DragEvent, index: number) => void;
 }
 
 export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
@@ -26,6 +32,12 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
   updateDoc,
   onAddClause,
   onDeleteClause,
+  onClauseDragStart,
+  onClauseDragOver,
+  onClauseDrop,
+  onVisualDragStart,
+  onVisualDragOver,
+  onVisualDrop,
 }) => {
 
   const [showVisualMenu, setShowVisualMenu] = useState(false);
@@ -102,6 +114,25 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
         { label: 'Item 2', value: 50, color: '#10B981' },
         { label: 'Item 3', value: 90, color: '#F59E0B' },
       ],
+      'multi-option-table': {
+        headers: ['Option', 'Price', 'Equity Split'],
+        rows: [
+          { selected: false, label: 'Option 1', columns: ['R 6,000', '60% / 40%'] },
+          { selected: false, label: 'Option 2', columns: ['R 12,000', '40% / 60%'] },
+          { selected: false, label: 'Option 3', columns: ['R 21,000', '20% / 80%'] },
+        ],
+      },
+      'visual-placeholder': {
+        title: 'INSERT CHART/DIAGRAM HERE',
+        description: 'A visual representation will be inserted here',
+        placeholderType: 'custom',
+      },
+      'fill-in-field': {
+        label: '',
+        fieldType: 'bracket',
+        placeholder: 'INSERT NAME',
+        value: '',
+      },
       'site-architecture': [],
       'project-phases': [],
       'pipe-diagram': [],
@@ -133,6 +164,34 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
   const deleteVisualComponent = (id: string) => {
     const updated = (doc.visualComponents || []).filter(vc => vc.id !== id);
     updateDoc({ ...doc, visualComponents: updated });
+  };
+
+  // Signature management functions
+  const addSignature = () => {
+    const newSignature: ContractSignature = {
+      id: Date.now().toString(),
+      name: '',
+      title: 'Co-Founder',
+      role: 'founder',
+      customLabel: '',
+    };
+    
+    updateDoc({
+      ...doc,
+      signatures: [...(doc.signatures || []), newSignature],
+    });
+  };
+
+  const updateSignature = (id: string, field: keyof ContractSignature, value: string) => {
+    const updated = (doc.signatures || []).map(sig =>
+      sig.id === id ? { ...sig, [field]: value } : sig
+    );
+    updateDoc({ ...doc, signatures: updated });
+  };
+
+  const deleteSignature = (id: string) => {
+    const updated = (doc.signatures || []).filter(sig => sig.id !== id);
+    updateDoc({ ...doc, signatures: updated });
   };
 
   // Filter clauses for Terms and Conditions (exclude scope clauses)
@@ -667,8 +726,25 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
               </div>
               
               <div style={{ paddingTop: '18mm' }}>
-                {doc.visualComponents.map(component => (
-                  <div key={component.id} className="mb-8">
+                {doc.visualComponents.map((component, index) => (
+                  <div 
+                    key={component.id} 
+                    className="mb-8 relative group"
+                    draggable={viewMode === 'Draft'}
+                    onDragStart={(e) => onVisualDragStart?.(e, index)}
+                    onDragOver={(e) => onVisualDragOver?.(e, index)}
+                    onDrop={(e) => onVisualDrop?.(e, index)}
+                  >
+                    {viewMode === 'Draft' && (
+                      <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          className="text-gray-400 hover:text-gray-600 cursor-move"
+                          title="Drag to reorder"
+                        >
+                          <GripVertical size={16} />
+                        </button>
+                      </div>
+                    )}
                     {component.type === 'pie-chart' && (
                       <PieChart
                         title={component.title}
@@ -705,6 +781,26 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
                         onUpdate={() => {}}
                       />
                     )}
+                    
+                    {component.type === 'multi-option-table' && (
+                      <MultiOptionTable
+                        title={component.title}
+                        headers={component.data.headers || []}
+                        rows={component.data.rows || []}
+                        editable={false}
+                        onUpdate={() => {}}
+                      />
+                    )}
+                    
+                    {component.type === 'visual-placeholder' && (
+                      <VisualPlaceholder
+                        title={component.data.title || component.title}
+                        description={component.data.description || ''}
+                        placeholderType={component.data.placeholderType || 'custom'}
+                        editable={false}
+                        onUpdate={() => {}}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -722,25 +818,49 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
             <div style={{ paddingTop: '18mm' }}>
               <h2 className={`${styles.sectionTitle} mb-8`}>SIGNATURES</h2>
               
-              <div className="grid grid-cols-2 gap-12 mt-12">
-                <div>
-                  <p className="font-bold mb-2">SERVICE PROVIDER</p>
-                  <p className="text-sm text-gray-600 mb-6">{profile.companyName}</p>
-                  <div className="border-b-2 border-black h-16 mb-2"></div>
-                  <p className="text-xs text-gray-500">Signature</p>
-                  <div className="border-b border-gray-300 mt-6 mb-2"></div>
-                  <p className="text-xs text-gray-500">Date</p>
-                </div>
+              {/* Default signatures if none exist */}
+              {(!doc.signatures || doc.signatures.length === 0) && (
+                <div className="grid grid-cols-2 gap-12 mt-12">
+                  <div>
+                    <p className="font-bold mb-2">SERVICE PROVIDER</p>
+                    <p className="text-sm text-gray-600 mb-6">{profile.companyName}</p>
+                    <div className="border-b-2 border-black h-16 mb-2"></div>
+                    <p className="text-xs text-gray-500">Signature</p>
+                    <div className="border-b border-gray-300 mt-6 mb-2"></div>
+                    <p className="text-xs text-gray-500">Date</p>
+                  </div>
 
-                <div>
-                  <p className="font-bold mb-2">CLIENT</p>
-                  <p className="text-sm text-gray-600 mb-6">{doc.client.businessName}</p>
-                  <div className="border-b-2 border-black h-16 mb-2"></div>
-                  <p className="text-xs text-gray-500">Signature</p>
-                  <div className="border-b border-gray-300 mt-6 mb-2"></div>
-                  <p className="text-xs text-gray-500">Date</p>
+                  <div>
+                    <p className="font-bold mb-2">CLIENT</p>
+                    <p className="text-sm text-gray-600 mb-6">{doc.client.businessName}</p>
+                    <div className="border-b-2 border-black h-16 mb-2"></div>
+                    <p className="text-xs text-gray-500">Signature</p>
+                    <div className="border-b border-gray-300 mt-6 mb-2"></div>
+                    <p className="text-xs text-gray-500">Date</p>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {/* Custom signatures */}
+              {doc.signatures && doc.signatures.length > 0 && (
+                <div className="space-y-10 mt-8">
+                  {doc.signatures.map((signature, index) => (
+                    <div key={signature.id} className="border-l-4 border-blue-500 pl-6">
+                      <p className="font-bold text-lg mb-1">{index + 1}. {signature.title}</p>
+                      <p className="text-sm text-gray-600 mb-1">{signature.name || '[INSERT NAME]'}</p>
+                      {signature.customLabel && (
+                        <p className="text-xs italic text-gray-600 mb-4">({signature.customLabel})</p>
+                      )}
+                      <div className="mt-4">
+                        <div className="border-b-2 border-black h-16 mb-2"></div>
+                        <p className="text-xs text-gray-500">Signature</p>
+                        <div className="border-b border-gray-300 mt-4 mb-2"></div>
+                        <p className="text-xs text-gray-500">Date</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-auto pt-12 text-xs text-gray-500 text-center border-t border-gray-200">
                 <p>This contract is governed by the laws of {doc.contractTerms?.jurisdiction || 'Republic of South Africa'}</p>
@@ -958,9 +1078,22 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
           
           {/* Scope of Work Clauses */}
           {doc.clauses?.filter(c => c.section === 'scope').map((clause, index) => (
-            <div key={clause.id} className="clause-item mb-6 relative group">
+            <div 
+              key={clause.id} 
+              className="clause-item mb-6 relative group"
+              draggable={viewMode === 'Draft'}
+              onDragStart={(e) => onClauseDragStart?.(e, index)}
+              onDragOver={(e) => onClauseDragOver?.(e, index)}
+              onDrop={(e) => onClauseDrop?.(e, index)}
+            >
               {viewMode === 'Draft' && (
                 <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2">
+                  <button 
+                    className="text-gray-400 hover:text-gray-600 cursor-move"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical size={16} />
+                  </button>
                   <button 
                     className="text-gray-400 hover:text-red-600"
                     onClick={() => onDeleteClause(clause.id)}
@@ -1017,9 +1150,22 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
         <h2 className={`${styles.sectionTitle} section-title`}>TERMS AND CONDITIONS</h2>
         
         {sortedClauses.map((clause, index) => (
-          <div key={clause.id} className="clause-item mb-8 relative group">
+          <div 
+            key={clause.id} 
+            className="clause-item mb-8 relative group"
+            draggable={viewMode === 'Draft'}
+            onDragStart={(e) => onClauseDragStart?.(e, index)}
+            onDragOver={(e) => onClauseDragOver?.(e, index)}
+            onDrop={(e) => onClauseDrop?.(e, index)}
+          >
           {viewMode === 'Draft' && (
             <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2">
+              <button 
+                className="text-gray-400 hover:text-gray-600 cursor-move"
+                title="Drag to reorder"
+              >
+                <GripVertical size={16} />
+              </button>
               <button 
                 className="text-gray-400 hover:text-red-600"
                 onClick={() => onDeleteClause(clause.id)}
@@ -1123,6 +1269,20 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
                   <DollarSign size={16} className="inline mr-2" />
                   Cost Breakdown
                 </button>
+                <button
+                  onClick={() => { addVisualComponent('multi-option-table'); setShowVisualMenu(false); }}
+                  className="p-3 hover:bg-green-50 border border-gray-300 rounded text-left font-bold text-blue-600"
+                >
+                  <BarChart3 size={16} className="inline mr-2" />
+                  Multi-Option Table
+                </button>
+                <button
+                  onClick={() => { addVisualComponent('visual-placeholder'); setShowVisualMenu(false); }}
+                  className="p-3 hover:bg-green-50 border border-gray-300 rounded text-left font-bold text-purple-600"
+                >
+                  <PieChartIcon size={16} className="inline mr-2" />
+                  Visual Placeholder
+                </button>
               </div>
             )}
           </div>
@@ -1133,18 +1293,34 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
       {/* VISUAL COMPONENTS SECTION */}
       {doc.visualComponents && doc.visualComponents.length > 0 && (
         <div className="my-8">
-          {doc.visualComponents.map(component => {
+          {doc.visualComponents.map((component, index) => {
             const editable = viewMode === 'Draft';
             
             return (
-              <div key={component.id} className="relative group">
+              <div 
+                key={component.id} 
+                className="relative group mb-8"
+                draggable={viewMode === 'Draft'}
+                onDragStart={(e) => onVisualDragStart?.(e, index)}
+                onDragOver={(e) => onVisualDragOver?.(e, index)}
+                onDrop={(e) => onVisualDrop?.(e, index)}
+              >
                 {editable && (
-                  <button
-                    onClick={() => deleteVisualComponent(component.id)}
-                    className="absolute -top-2 -right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity print:hidden z-10"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2">
+                    <button 
+                      className="text-gray-400 hover:text-gray-600 cursor-move"
+                      title="Drag to reorder"
+                    >
+                      <GripVertical size={16} />
+                    </button>
+                    <button
+                      onClick={() => deleteVisualComponent(component.id)}
+                      className="text-gray-400 hover:text-red-600"
+                      title="Delete visual component"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 )}
                 
                 {component.type === 'pie-chart' && (
@@ -1193,6 +1369,26 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
                     onUpdate={(data) => updateVisualComponent(component.id, data)}
                   />
                 )}
+                
+                {component.type === 'multi-option-table' && (
+                  <MultiOptionTable
+                    title={component.title}
+                    headers={component.data.headers || []}
+                    rows={component.data.rows || []}
+                    editable={editable}
+                    onUpdate={(data) => updateVisualComponent(component.id, data)}
+                  />
+                )}
+                
+                {component.type === 'visual-placeholder' && (
+                  <VisualPlaceholder
+                    title={component.data.title || component.title}
+                    description={component.data.description || ''}
+                    placeholderType={component.data.placeholderType || 'custom'}
+                    editable={editable}
+                    onUpdate={(data) => updateVisualComponent(component.id, data)}
+                  />
+                )}
               </div>
             );
           })}
@@ -1201,27 +1397,132 @@ export const ContractThemeRenderer: React.FC<ContractThemeRendererProps> = ({
 
       {/* SIGNATURE SECTION */}
       <div className={`${styles.signatureBox} signature-section`}>
-        <h2 className={`${styles.sectionTitle} section-title`}>SIGNATURES</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-          <div>
-            <p className="font-bold mb-2">SERVICE PROVIDER</p>
-            <p className="text-sm text-gray-600 mb-4">{profile.companyName}</p>
-            <div className="border-b-2 border-black h-16 mb-2"></div>
-            <p className="text-xs text-gray-500">Signature</p>
-            <div className="border-b border-gray-300 mt-4 mb-2"></div>
-            <p className="text-xs text-gray-500">Date</p>
-          </div>
-
-          <div>
-            <p className="font-bold mb-2">CLIENT</p>
-            <p className="text-sm text-gray-600 mb-4">{doc.client.businessName}</p>
-            <div className="border-b-2 border-black h-16 mb-2"></div>
-            <p className="text-xs text-gray-500">Signature</p>
-            <div className="border-b border-gray-300 mt-4 mb-2"></div>
-            <p className="text-xs text-gray-500">Date</p>
-          </div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className={`${styles.sectionTitle} section-title`}>SIGNATURES</h2>
+          {viewMode === 'Draft' && (
+            <button
+              onClick={addSignature}
+              className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 print:hidden"
+            >
+              <UserPlus size={16} /> Add Signatory
+            </button>
+          )}
         </div>
+        
+        {/* Default signatures if none exist */}
+        {(!doc.signatures || doc.signatures.length === 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+            <div>
+              <p className="font-bold mb-2">SERVICE PROVIDER</p>
+              <p className="text-sm text-gray-600 mb-4">{profile.companyName}</p>
+              <div className="border-b-2 border-black h-16 mb-2"></div>
+              <p className="text-xs text-gray-500">Signature</p>
+              <div className="border-b border-gray-300 mt-4 mb-2"></div>
+              <p className="text-xs text-gray-500">Date</p>
+            </div>
+
+            <div>
+              <p className="font-bold mb-2">CLIENT</p>
+              <p className="text-sm text-gray-600 mb-4">{doc.client.businessName}</p>
+              <div className="border-b-2 border-black h-16 mb-2"></div>
+              <p className="text-xs text-gray-500">Signature</p>
+              <div className="border-b border-gray-300 mt-4 mb-2"></div>
+              <p className="text-xs text-gray-500">Date</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Custom signatures */}
+        {doc.signatures && doc.signatures.length > 0 && (
+          <div className="space-y-8 mt-8">
+            {doc.signatures.map((signature, index) => (
+              <div key={signature.id} className="border-l-4 border-blue-500 pl-6 relative">
+                {viewMode === 'Draft' && (
+                  <button
+                    onClick={() => deleteSignature(signature.id)}
+                    className="absolute -right-2 top-0 text-red-500 hover:text-red-700 print:hidden"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Signatory {index + 1}</label>
+                  {viewMode === 'Draft' ? (
+                    <input
+                      type="text"
+                      value={signature.title}
+                      onChange={(e) => updateSignature(signature.id, 'title', e.target.value)}
+                      placeholder="e.g., Co-Founder 1, Technical Founder, Director"
+                      className="w-full px-3 py-2 border border-gray-300 rounded font-bold"
+                    />
+                  ) : (
+                    <p className="font-bold text-lg">{signature.title}</p>
+                  )}
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Full Name</label>
+                  {viewMode === 'Draft' ? (
+                    <input
+                      type="text"
+                      value={signature.name}
+                      onChange={(e) => updateSignature(signature.id, 'name', e.target.value)}
+                      placeholder="Full legal name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600">{signature.name || '[INSERT NAME]'}</p>
+                  )}
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Role</label>
+                  {viewMode === 'Draft' ? (
+                    <select
+                      value={signature.role}
+                      onChange={(e) => updateSignature(signature.id, 'role', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                    >
+                      <option value="founder">Founder</option>
+                      <option value="director">Director</option>
+                      <option value="provider">Service Provider</option>
+                      <option value="client">Client</option>
+                      <option value="witness">Witness</option>
+                      <option value="other">Other</option>
+                    </select>
+                  ) : (
+                    <p className="text-sm text-gray-500 capitalize">{signature.role}</p>
+                  )}
+                </div>
+                
+                {viewMode === 'Draft' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Custom Label (Optional)</label>
+                    <input
+                      type="text"
+                      value={signature.customLabel || ''}
+                      onChange={(e) => updateSignature(signature.id, 'customLabel', e.target.value)}
+                      placeholder="e.g., Warrants technical capacity to deliver"
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                )}
+                
+                {signature.customLabel && viewMode === 'Final' && (
+                  <p className="text-xs italic text-gray-600 mb-4">({signature.customLabel})</p>
+                )}
+                
+                <div className="mt-6">
+                  <div className="border-b-2 border-black h-16 mb-2"></div>
+                  <p className="text-xs text-gray-500">Signature</p>
+                  <div className="border-b border-gray-300 mt-4 mb-2"></div>
+                  <p className="text-xs text-gray-500">Date</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* FOOTER */}

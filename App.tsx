@@ -6,6 +6,7 @@ import { PLUMBING_TEMPLATES } from './services/plumbingData';
 import { getIndustryTemplates, getIndustryExampleInvoice } from './services/industryData';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
+import { ChatProvider } from './context/ChatContext';
 import supabaseClient from './services/supabaseClient';
 import { useDocuments } from './hooks/useDocuments';
 import { useClients } from './hooks/useClients';
@@ -20,6 +21,7 @@ import { getClausesForContractType } from './services/clauseLibrary';
 const LoginScreen = lazy(() => import('./screens/LoginScreen'));
 const DashboardScreen = lazy(() => import('./screens/DashboardScreen'));
 const CanvasScreen = lazy(() => import('./screens/CanvasScreen'));
+const QuickeeScreen = lazy(() => import('./screens/QuickeeScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 const ClientsScreen = lazy(() => import('./screens/ClientsScreen'));
 const DocumentsScreen = lazy(() => import('./screens/DocumentsScreen'));
@@ -101,7 +103,7 @@ const Layout: React.FC<{
       </button>
       
       <h1 onClick={() => navigate('/')} className="text-2xl font-bold tracking-tighter text-grit-primary bg-grit-dark px-3 py-1 cursor-pointer transform hover:-rotate-1 transition-transform">
-        gritDocs
+        nipSlips
       </h1>
 
       <div className="flex gap-2">
@@ -124,6 +126,7 @@ const Layout: React.FC<{
         <nav className="flex flex-col gap-4">
           <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Dashboard</button>
           <button onClick={() => { setIsMenuOpen(false); onShowWizard(); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Create Document</button>
+          <button onClick={() => { navigate('/quickee'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Quickee</button>
           <button onClick={() => { navigate('/documents'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Documents</button>
           <button onClick={() => { navigate('/clients'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Clients</button>
           <button onClick={() => { navigate('/templates'); setIsMenuOpen(false); }} className="text-left font-bold text-lg hover:text-grit-primary p-2 border-b border-gray-100">Templates</button>
@@ -166,7 +169,9 @@ export default function App() {
   useEffect(() => localStorage.setItem('grit_item_usage', JSON.stringify(itemUsage)), [itemUsage]);
 
   const handleDocumentCreated = (doc: DocumentData) => {
+    console.log('[App] handleDocumentCreated called with:', doc);
     setCurrentDoc(doc);
+    console.log('[App] currentDoc state updated');
     triggerHaptic('success');
   };
 
@@ -198,14 +203,16 @@ export default function App() {
     <HashRouter>
       <AuthProvider>
         <OnboardingProvider>
-          <AppRoutes 
-            currentDoc={currentDoc}
-            setCurrentDoc={setCurrentDoc}
-            handleDocumentCreated={handleDocumentCreated}
-            handleDuplicateLast={handleDuplicateLast}
-            itemUsage={itemUsage}
-            trackItemUsage={trackItemUsage}
-          />
+          <ChatProvider>
+            <AppRoutes 
+              currentDoc={currentDoc}
+              setCurrentDoc={setCurrentDoc}
+              handleDocumentCreated={handleDocumentCreated}
+              handleDuplicateLast={handleDuplicateLast}
+              itemUsage={itemUsage}
+              trackItemUsage={trackItemUsage}
+            />
+          </ChatProvider>
         </OnboardingProvider>
       </AuthProvider>
     </HashRouter>
@@ -253,13 +260,15 @@ const AppRoutes: React.FC<any> = (props) => {
   useEffect(() => {
     console.log('[App] Documents effect triggered. Documents array:', documents.length, documents.map(d => ({ id: d.id, title: d.title })));
     localStorage.setItem('grit_documents', JSON.stringify(documents));
-    
-    // Auto-complete document milestone when first document is created, but only if not already completed
-    if (documents.length > 0 && activeStep !== 'document' && !isMilestoneCompleted('document')) {
-      console.log('[App] Completing document milestone');
+  }, [documents]);
+  
+  // Only complete milestone once when first document created
+  useEffect(() => {
+    if (documents.length === 1 && activeStep !== 'document' && !isMilestoneCompleted('document')) {
+      console.log('[App] Completing document milestone - first document created');
       completeStep('document');
     }
-  }, [documents]);
+  }, [documents.length]);
 
   useEffect(() => {
     localStorage.setItem('grit_clients', JSON.stringify(clients));
@@ -434,6 +443,7 @@ const AppRoutes: React.FC<any> = (props) => {
                     /> 
             } />
 
+            <Route path="/quickee" element={!isAuthenticated ? <Navigate to="/login" replace /> : <QuickeeScreen clients={clients} profile={profile || INITIAL_PROFILE} templates={templates} onDocumentCreated={props.handleDocumentCreated} onNavigateToCanvas={props.setCurrentDoc} />} />
             <Route path="/documents" element={!isAuthenticated ? <Navigate to="/login" replace /> : <DocumentsScreen documents={documents} openDocument={props.setCurrentDoc} />} />
             <Route path="/clients" element={!isAuthenticated ? <Navigate to="/login" replace /> : <ClientsScreen clients={clients} documents={documents} saveClient={saveClient} deleteClient={deleteClient} />} />
             <Route path="/templates" element={!isAuthenticated ? <Navigate to="/login" replace /> : <TemplatesScreen templates={templates} setTemplates={setTemplates} saveTemplate={saveTemplate} deleteTemplate={deleteTemplate} />} />
@@ -453,8 +463,8 @@ const AppRoutes: React.FC<any> = (props) => {
       />
     )}
     
-    {/* Milestone Celebration Modal */}
-    {celebrationMilestone && (
+    {/* Milestone Celebration Modal - Only show once per milestone */}
+    {celebrationMilestone && !isMilestoneCompleted(celebrationMilestone) && (
       <MilestoneCelebration
         milestone={celebrationMilestone}
         onNext={() => {

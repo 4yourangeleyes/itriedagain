@@ -62,15 +62,18 @@ export interface ContractMilestone {
 
 export interface ContractSignature {
   id: string;
-  role: 'provider' | 'client' | 'witness';
+  name: string;
+  title: string; // Custom title for this signatory (e.g., "Co-Founder 1", "Technical Founder")
+  role: 'provider' | 'client' | 'witness' | 'founder' | 'director' | 'other';
   signedBy?: string;
   signedDate?: string;
   signatureData?: string; // Base64 image or digital signature
+  customLabel?: string; // Optional custom label line (e.g., "Warrants technical capacity to deliver")
 }
 
 export interface VisualComponent {
   id: string;
-  type: 'pie-chart' | 'bar-chart' | 'timeline' | 'cost-breakdown' | 'tech-stack' | 'site-architecture' | 'project-phases' | 'pipe-diagram' | 'feature-matrix';
+  type: 'pie-chart' | 'bar-chart' | 'timeline' | 'cost-breakdown' | 'tech-stack' | 'site-architecture' | 'project-phases' | 'pipe-diagram' | 'feature-matrix' | 'multi-option-table' | 'visual-placeholder' | 'fill-in-field';
   title: string;
   data: any;
   position: number; // Order in document
@@ -145,12 +148,20 @@ export interface UserProfile {
 export interface TemplateBlock {
   id: string;
   name: string; 
-  category: string; 
+  category: string;
+  description?: string; // Template description/notes
   type: DocType; 
+  // Invoice template fields
   items?: InvoiceItem[]; 
-  clause?: ContractClause;
+  defaultNotes?: string; // Default notes for invoices
+  defaultTaxEnabled?: boolean;
+  defaultTaxRate?: number;
+  // Contract template fields
+  clause?: ContractClause; // Legacy single clause support
   clauses?: ContractClause[]; // Multiple clauses for comprehensive templates
   contractType?: ContractType;
+  defaultJurisdiction?: string;
+  defaultPaymentSchedule?: 'upfront' | 'milestone' | 'monthly' | 'completion' | 'custom';
 }
 
 // Web Speech API Types

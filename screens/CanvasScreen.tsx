@@ -10,6 +10,7 @@ import { sendInvoiceEmail, isValidEmail } from '../services/emailService';
 import { InvoiceThemeRenderer } from '../components/InvoiceThemeRenderer';
 import { ContractThemeRenderer } from '../components/ContractThemeRenderer';
 import { OnboardingTooltip } from '../components/OnboardingTooltip';
+import { CanvasAIChatBubble } from '../components/CanvasAIChatBubble';
 import { useOnboarding } from '../context/OnboardingContext';
 import { Client } from '../types';
 import { useCanvasZoom } from '../hooks/useCanvasZoom';
@@ -83,7 +84,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
   // Force 100% zoomState.zoom during guide
   useEffect(() => {
     zoomState.applyGuidedZoom(activeStep === 'document' && showGuide);
-  }, [activeStep, showGuide, zoomState]);
+  }, [activeStep, showGuide]);
 
   const calculateTotals = (items: InvoiceItem[]) => {
       const subtotal = items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
@@ -158,7 +159,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
   const handleStatusChange = (newStatus: DocStatus) => {
       const updated = { ...doc, status: newStatus };
       updateDoc(updated); onSave(updated);
-      if (newStatus === 'Paid') { setShowKaChing(true); triggerHaptic('heavy'); setTimeout(() => setShowKaChing(false), 2000); }
+      if (newStatus === 'Paid') { menuState.setShowKaChing(true); triggerHaptic('heavy'); setTimeout(() => menuState.setShowKaChing(false), 2000); }
   };
 
   const updateLineItem = (id: string, field: keyof InvoiceItem, value: any) => {
@@ -218,6 +219,52 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
       selectionState.setDraggedItemIndex(null);
   };
 
+  // Clause drag and drop handlers
+  const handleClauseDragStart = (e: React.DragEvent, index: number) => {
+      selectionState.setDraggedItemIndex(index);
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleClauseDragOver = (e: React.DragEvent, index: number) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleClauseDrop = (e: React.DragEvent, dropIndex: number) => {
+      e.preventDefault();
+      if (selectionState.draggedItemIndex === null || !doc.clauses) return;
+      const newClauses = [...doc.clauses];
+      const [draggedClause] = newClauses.splice(selectionState.draggedItemIndex, 1);
+      newClauses.splice(dropIndex, 0, draggedClause);
+      // Update order numbers
+      const reorderedClauses = newClauses.map((c, idx) => ({ ...c, order: idx + 1 }));
+      updateDoc({ ...doc, clauses: reorderedClauses });
+      selectionState.setDraggedItemIndex(null);
+  };
+
+  // Visual component drag and drop handlers
+  const handleVisualDragStart = (e: React.DragEvent, index: number) => {
+      selectionState.setDraggedItemIndex(index);
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleVisualDragOver = (e: React.DragEvent, index: number) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleVisualDrop = (e: React.DragEvent, dropIndex: number) => {
+      e.preventDefault();
+      if (selectionState.draggedItemIndex === null || !doc.visualComponents) return;
+      const newVisuals = [...doc.visualComponents];
+      const [draggedVisual] = newVisuals.splice(selectionState.draggedItemIndex, 1);
+      newVisuals.splice(dropIndex, 0, draggedVisual);
+      // Update position numbers
+      const reorderedVisuals = newVisuals.map((v, idx) => ({ ...v, position: idx }));
+      updateDoc({ ...doc, visualComponents: reorderedVisuals });
+      selectionState.setDraggedItemIndex(null);
+  };
+
   const handleAddItem = (item?: Partial<InvoiceItem>) => {
     const newItem: InvoiceItem = {
       id: Date.now().toString(),
@@ -255,18 +302,38 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           const totals = calculateTotals(newItems);
           updateDoc({ ...doc, items: newItems, ...totals });
       } else if (template.type === DocType.CONTRACT && template.clauses) {
-          // Add contract clauses
+          // Add contract clauses - check for duplicates
           const existingClauses = doc.clauses || [];
           const newClauses = [...existingClauses];
           const timestamp = Date.now();
           
+          // Normalize function to compare clauses
+          const normalizeText = (text: string) => 
+            text.toLowerCase().trim().replace(/\s+/g, ' ');
+          
+          let duplicateCount = 0;
+          
           template.clauses.forEach((clause, index) => {
-              newClauses.push({
-                  ...clause,
-                  id: `${timestamp}-${index}`,
-                  order: existingClauses.length + index + 1
-              });
+              // Check if clause with same title and content already exists
+              const isDuplicate = existingClauses.some(existing => 
+                normalizeText(existing.title) === normalizeText(clause.title) &&
+                normalizeText(existing.content) === normalizeText(clause.content)
+              );
+              
+              if (!isDuplicate) {
+                newClauses.push({
+                    ...clause,
+                    id: `${timestamp}-${index}`,
+                    order: existingClauses.length + index + 1
+                });
+              } else {
+                duplicateCount++;
+              }
           });
+          
+          if (duplicateCount > 0) {
+            alert(`${duplicateCount} duplicate clause${duplicateCount > 1 ? 's' : ''} skipped. Clause${duplicateCount > 1 ? 's' : ''} with the same title and content already exist${duplicateCount === 1 ? 's' : ''}.`);
+          }
           
           updateDoc({ ...doc, clauses: newClauses });
       }
@@ -530,6 +597,12 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
             profile={profile}
             viewMode={zoomState.viewMode}
             updateDoc={updateDoc}
+            onClauseDragStart={handleClauseDragStart}
+            onClauseDragOver={handleClauseDragOver}
+            onClauseDrop={handleClauseDrop}
+            onVisualDragStart={handleVisualDragStart}
+            onVisualDragOver={handleVisualDragOver}
+            onVisualDrop={handleVisualDrop}
             onAddClause={(section: 'terms' | 'scope' | 'general' = 'general') => {
               const newClause: ContractClause = {
                 id: crypto.randomUUID(),
@@ -620,7 +693,7 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
         </div>
       )}
 
-      {showKaChing && <div className="fixed inset-0 flex items-center justify-center pointer-events-none"><DollarSign size={96} className="text-grit-primary animate-bounce font-black" /></div>}
+      {menuState.showKaChing && <div className="fixed inset-0 flex items-center justify-center pointer-events-none"><DollarSign size={96} className="text-grit-primary animate-bounce font-black" /></div>}
       {modalState.suggestDeposit && <div className="fixed bottom-4 right-4 bg-grit-primary border-4 border-grit-dark p-4 max-w-xs print:hidden"><p className="font-bold mb-2">High invoice amount detected</p><button onClick={addDepositTerm} className="w-full px-3 py-2 border-2 border-grit-dark bg-grit-dark text-white hover:bg-white hover:text-grit-dark transition-colors font-bold">Add 50% Deposit Term</button></div>}
 
       {menuState.showAddMenu && (
@@ -1005,6 +1078,16 @@ const CanvasScreen: React.FC<CanvasScreenProps> = ({ doc, profile, updateDoc, te
           highlightTarget="[data-guide-save]"
         />
       )}
+      
+      {/* AI Chat Bubble */}
+      <CanvasAIChatBubble onAIRequest={async (message) => {
+        // TODO: Implement AI request handling for canvas
+        // This will integrate with geminiService to handle:
+        // - Suggesting clauses
+        // - Reordering layout
+        // - Adding visual components
+        return `AI response to: ${message}`;
+      }} />
     </React.Fragment>
   );
 };

@@ -42,14 +42,14 @@ export const assembleDocument = (options: DocumentAssemblyOptions): DocumentData
       address: client.address || '',
     },
     date: new Date().toLocaleDateString(),
-    currency: profile.currency || '$',
+    currency: profile?.currency || '$',
     theme: theme as any,
   };
 
   // Add invoice-specific fields
   if (docType === DocType.INVOICE) {
     const subtotal = items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-    const taxRate = profile.taxEnabled && profile.taxRate ? profile.taxRate : 0;
+    const taxRate = profile?.taxEnabled && profile?.taxRate ? profile.taxRate : 0;
     const taxTotal = subtotal * (taxRate / 100);
     const total = subtotal + taxTotal;
 
