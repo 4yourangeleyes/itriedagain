@@ -54,20 +54,33 @@ export const useTemplates = (initialTemplates: TemplateBlock[] = []) => {
               }
             }
 
+            // Parse visual components if it's a string
+            let parsedVisualComponents = row.visual_components;
+            if (typeof row.visual_components === 'string') {
+              try {
+                parsedVisualComponents = JSON.parse(row.visual_components);
+              } catch (e) {
+                console.error('[useTemplates] Failed to parse visual_components for template:', row.id);
+                parsedVisualComponents = [];
+              }
+            }
+
             return {
               id: row.id,
               name: row.name,
               type: row.doc_type as DocType,
               category: row.category || '',
+              description: row.description || '',
               items: row.items || [],
               clauses: Array.isArray(parsedClauses) ? parsedClauses : [],
+              visualComponents: Array.isArray(parsedVisualComponents) ? parsedVisualComponents : [],
               contractType: row.contract_type || undefined,
-              // NEW: Load section-based contract fields
-              sections: row.sections || [],
-              partyTypes: row.party_types || [],
-              defaultSignatories: row.default_signatories || 2,
+              // Invoice-specific fields
+              defaultNotes: row.default_notes || undefined,
+              defaultTaxEnabled: row.default_tax_enabled !== null ? row.default_tax_enabled : undefined,
+              defaultTaxRate: row.default_tax_rate !== null ? row.default_tax_rate : undefined,
+              // Contract-specific fields
               defaultJurisdiction: row.default_jurisdiction || undefined,
-              governingAct: row.governing_act || undefined,
               defaultPaymentSchedule: row.default_payment_schedule || undefined,
             };
           });
@@ -103,16 +116,18 @@ export const useTemplates = (initialTemplates: TemplateBlock[] = []) => {
         user_id: user.id,
         name: template.name,
         category: template.category || '',
+        description: template.description || '',
         doc_type: template.type,
         contract_type: template.contractType || null,
         items: template.items || [],
         clauses: JSON.stringify(template.clauses || []),
-        // NEW: Save section-based contract fields
-        sections: template.sections || [],
-        party_types: template.partyTypes || null,
-        default_signatories: template.defaultSignatories || 2,
+        visual_components: JSON.stringify(template.visualComponents || []),
+        // Invoice-specific fields
+        default_notes: template.defaultNotes || null,
+        default_tax_enabled: template.defaultTaxEnabled !== undefined ? template.defaultTaxEnabled : null,
+        default_tax_rate: template.defaultTaxRate !== undefined ? template.defaultTaxRate : null,
+        // Contract-specific fields
         default_jurisdiction: template.defaultJurisdiction || null,
-        governing_act: template.governingAct || null,
         default_payment_schedule: template.defaultPaymentSchedule || null,
         updated_at: new Date().toISOString(),
       };

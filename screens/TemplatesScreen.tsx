@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, FileText, FileBox, Edit2, X } from 'lucide-react';
-import { TemplateBlock, DocType } from '../types';
+import { Plus, Trash2, FileText, FileBox, Edit2, X, BarChart3, GripVertical } from 'lucide-react';
+import { TemplateBlock, DocType, VisualComponent } from '../types';
 import { Input, TextArea } from '../components/Input';
 import { useOnboarding } from '../context/OnboardingContext';
 import { OnboardingTooltip } from '../components/OnboardingTooltip';
@@ -25,6 +25,9 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   const [tempType, setTempType] = useState<DocType>(DocType.INVOICE);
   const [tempItems, setTempItems] = useState<any[]>([]);
   const [tempClauses, setTempClauses] = useState<any[]>([]);
+  const [tempVisualComponents, setTempVisualComponents] = useState<VisualComponent[]>([]);
+  const [showVisualMenu, setShowVisualMenu] = useState(false);
+  const [draggedClauseIndex, setDraggedClauseIndex] = useState<number | null>(null);
   const [tempClauseContent, setTempClauseContent] = useState('');
   const [tempDefaultNotes, setTempDefaultNotes] = useState('');
   const [tempDefaultTaxEnabled, setTempDefaultTaxEnabled] = useState(false);
@@ -56,6 +59,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
       defaultTaxEnabled: tempType === DocType.INVOICE ? tempDefaultTaxEnabled : undefined,
       defaultTaxRate: tempType === DocType.INVOICE ? tempDefaultTaxRate : undefined,
       clauses: tempType === DocType.CONTRACT ? tempClauses : undefined,
+      visualComponents: tempType === DocType.CONTRACT ? tempVisualComponents : undefined,
       contractType: tempType === DocType.CONTRACT ? (tempContractType as any) : undefined,
       defaultJurisdiction: tempType === DocType.CONTRACT ? tempDefaultJurisdiction : undefined,
       defaultPaymentSchedule: tempType === DocType.CONTRACT ? tempDefaultPaymentSchedule : undefined,
@@ -90,6 +94,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
     setTempType(template.type);
     setTempItems(template.items || []);
     setTempClauses(template.clauses || []);
+    setTempVisualComponents(template.visualComponents || []);
     setTempClauseContent(template.clause?.content || '');
     setTempDefaultNotes(template.defaultNotes || '');
     setTempDefaultTaxEnabled(template.defaultTaxEnabled || false);
@@ -113,6 +118,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
       defaultTaxEnabled: tempType === DocType.INVOICE ? tempDefaultTaxEnabled : undefined,
       defaultTaxRate: tempType === DocType.INVOICE ? tempDefaultTaxRate : undefined,
       clauses: tempType === DocType.CONTRACT ? tempClauses : undefined,
+      visualComponents: tempType === DocType.CONTRACT ? tempVisualComponents : undefined,
       contractType: tempType === DocType.CONTRACT ? (tempContractType as any) : undefined,
       defaultJurisdiction: tempType === DocType.CONTRACT ? tempDefaultJurisdiction : undefined,
       defaultPaymentSchedule: tempType === DocType.CONTRACT ? tempDefaultPaymentSchedule : undefined,
@@ -138,6 +144,7 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
     setTempType(DocType.INVOICE);
     setTempItems([]);
     setTempClauses([]);
+    setTempVisualComponents([]);
     setTempClauseContent('');
     setTempDefaultNotes('');
     setTempDefaultTaxEnabled(false);
@@ -150,6 +157,93 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
   const handleDeleteTemplate = async (id: string) => {
     await deleteTemplate(id);
     setTemplates(templates.filter(t => t.id !== id));
+  };
+
+  // Add visual component to template
+  const addVisualComponent = (type: VisualComponent['type']) => {
+    const defaultData: Record<VisualComponent['type'], any> = {
+      'pie-chart': [
+        { label: 'Section 1', percentage: 40, color: '#3B82F6' },
+        { label: 'Section 2', percentage: 30, color: '#10B981' },
+        { label: 'Section 3', percentage: 30, color: '#F59E0B' },
+      ],
+      'timeline': [
+        { phase: 'Phase 1', duration: '2 weeks', description: 'Initial setup' },
+        { phase: 'Phase 2', duration: '4 weeks', description: 'Development' },
+        { phase: 'Phase 3', duration: '1 week', description: 'Testing & Launch' },
+      ],
+      'tech-stack': [
+        { name: 'React', category: 'Frontend' },
+        { name: 'Node.js', category: 'Backend' },
+        { name: 'PostgreSQL', category: 'Database' },
+      ],
+      'cost-breakdown': [
+        { item: 'Development', quantity: 40, rate: 500, total: 20000 },
+        { item: 'Design', quantity: 20, rate: 400, total: 8000 },
+      ],
+      'bar-chart': [
+        { label: 'Item 1', value: 75, color: '#3B82F6' },
+        { label: 'Item 2', value: 50, color: '#10B981' },
+        { label: 'Item 3', value: 90, color: '#F59E0B' },
+      ],
+      'multi-option-table': {
+        headers: ['Option', 'Price', 'Equity Split'],
+        rows: [
+          { selected: false, label: 'Option 1', columns: ['R 6,000', '60% / 40%'] },
+          { selected: false, label: 'Option 2', columns: ['R 12,000', '40% / 60%'] },
+          { selected: false, label: 'Option 3', columns: ['R 21,000', '20% / 80%'] },
+        ],
+      },
+      'visual-placeholder': {
+        title: 'INSERT CHART/DIAGRAM HERE',
+        description: 'A visual representation will be inserted here',
+        placeholderType: 'custom',
+      },
+      'fill-in-field': {
+        label: '',
+        fieldType: 'bracket',
+        placeholder: 'INSERT NAME',
+        value: '',
+      },
+      'site-architecture': [],
+      'project-phases': [],
+      'pipe-diagram': [],
+      'feature-matrix': [],
+    };
+
+    const newComponent: VisualComponent = {
+      id: Date.now().toString(),
+      type,
+      title: type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      data: defaultData[type],
+      position: tempVisualComponents.length + 1,
+    };
+
+    setTempVisualComponents([...tempVisualComponents, newComponent]);
+  };
+
+  // Clause drag & drop handlers
+  const handleClauseDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedClauseIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleClauseDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleClauseDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedClauseIndex === null || draggedClauseIndex === dropIndex) return;
+
+    const updated = [...tempClauses];
+    const [removed] = updated.splice(draggedClauseIndex, 1);
+    updated.splice(dropIndex, 0, removed);
+    
+    // Update order property
+    setTempClauses(updated.map((c, i) => ({ ...c, order: i + 1 })));
+    setDraggedClauseIndex(null);
   };
   
   const handleLoadIndustryTemplates = async () => {
@@ -489,19 +583,31 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
                     <label className="block font-bold mb-2">Contract Clauses</label>
                     <div className="space-y-3 mb-3">
                       {tempClauses.map((clause, idx) => (
-                        <div key={idx} className="bg-gray-50 p-3 border border-gray-300 rounded">
+                        <div
+                          key={idx}
+                          draggable
+                          onDragStart={(e) => handleClauseDragStart(e, idx)}
+                          onDragOver={handleClauseDragOver}
+                          onDrop={(e) => handleClauseDrop(e, idx)}
+                          className={`bg-gray-50 p-3 border border-gray-300 rounded cursor-move hover:border-purple-400 transition-colors ${
+                            draggedClauseIndex === idx ? 'opacity-50' : ''
+                          }`}
+                        >
                           <div className="flex justify-between items-start mb-2">
-                            <input
-                              type="text"
-                              value={clause.title}
-                              onChange={(e) => {
-                                const updated = [...tempClauses];
-                                updated[idx].title = e.target.value;
-                                setTempClauses(updated);
-                              }}
-                              className="flex-1 font-bold px-2 py-1 border border-gray-300 mr-2"
-                              placeholder="Clause title"
-                            />
+                            <div className="flex items-center gap-2 flex-1">
+                              <GripVertical size={16} className="text-gray-400" />
+                              <input
+                                type="text"
+                                value={clause.title}
+                                onChange={(e) => {
+                                  const updated = [...tempClauses];
+                                  updated[idx].title = e.target.value;
+                                  setTempClauses(updated);
+                                }}
+                                className="flex-1 font-bold px-2 py-1 border border-gray-300"
+                                placeholder="Clause title"
+                              />
+                            </div>
                             <select
                               value={clause.section || 'general'}
                               onChange={(e) => {
@@ -550,6 +656,84 @@ const TemplatesScreen: React.FC<TemplatesScreenProps> = ({ templates, setTemplat
                     >
                       <Plus size={14} /> Add Clause
                     </button>
+                  </div>
+
+                  {/* Visual Components Section */}
+                  <div className="border-t-2 border-gray-200 pt-4 mt-4">
+                    <label className="block font-bold mb-2">Visual Components</label>
+                    <div className="space-y-2 mb-3">
+                      {tempVisualComponents.map((component, idx) => (
+                        <div key={component.id} className="bg-blue-50 p-2 border border-blue-300 rounded flex justify-between items-center">
+                          <span className="text-sm font-medium">{component.title}</span>
+                          <button
+                            onClick={() => setTempVisualComponents(tempVisualComponents.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowVisualMenu(!showVisualMenu)}
+                        className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        <BarChart3 size={14} /> Add Visual Component
+                      </button>
+                      {showVisualMenu && (
+                        <div className="absolute left-0 mt-1 bg-white shadow-lg rounded-lg border border-gray-200 z-10 p-2 w-56">
+                          <button
+                            onClick={() => { addVisualComponent('pie-chart'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            📊 Pie Chart
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('bar-chart'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            📈 Bar Chart
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('timeline'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            📅 Timeline
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('tech-stack'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            💻 Tech Stack
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('cost-breakdown'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            💰 Cost Breakdown
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('multi-option-table'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            ✅ Multi-Option Table
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('visual-placeholder'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            🖼️ Visual Placeholder
+                          </button>
+                          <button
+                            onClick={() => { addVisualComponent('fill-in-field'); setShowVisualMenu(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded"
+                          >
+                            ✏️ Fill-in Field
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               )}

@@ -159,6 +159,7 @@ export interface TemplateBlock {
   // Contract template fields
   clause?: ContractClause; // Legacy single clause support
   clauses?: ContractClause[]; // Multiple clauses for comprehensive templates
+  visualComponents?: VisualComponent[]; // Visual components for contract templates
   contractType?: ContractType;
   defaultJurisdiction?: string;
   defaultPaymentSchedule?: 'upfront' | 'milestone' | 'monthly' | 'completion' | 'custom';
